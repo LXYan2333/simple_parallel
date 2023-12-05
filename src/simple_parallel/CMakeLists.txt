@@ -17,4 +17,7 @@ target_link_system_libraries(
     PUBLIC  TBB::tbb
             MPI::MPI_CXX
             PkgConfig::HWLOC
-            mimalloc)
+            mimalloc
+            fmt::fmt
+            Microsoft.GSL::GSL
+            bigmpi)

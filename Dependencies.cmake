@@ -20,8 +20,17 @@ function(simple_parallel_setup_dependencies)
         CPMAddPackage(
             NAME mimalloc
             GITHUB_REPOSITORY "microsoft/mimalloc"
-            VERSION 2.1.2
-            OPTIONS "MI_OVERRIDE OFF")
+            VERSION 2.1.2)
+    endif()
+
+    if(NOT TARGET bigmpi)
+        CPMAddPackage(
+            NAME bigmpi
+            GITHUB_REPOSITORY "jeffhammond/BigMPI"
+            VERSION 0.1)
+    endif()
+    if (bigmpi_ADDED)
+        target_include_directories(bigmpi INTERFACE ${bigmpi_SOURCE_DIR}/src)
     endif()
 
     if(NOT TARGET CLI11::CLI11)
@@ -74,7 +83,7 @@ function(simple_parallel_setup_dependencies)
             GITHUB_REPOSITORY "ericniebler/range-v3")
     endif()
 
-    if(NOT TARGET fmtlib::fmtlib)
+    if(NOT TARGET fmt::fmt)
         CPMAddPackage("gh:fmtlib/fmt#10.1.1")
     endif()
 

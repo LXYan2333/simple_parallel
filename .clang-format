@@ -78,7 +78,11 @@ PointerAlignment: Left
 # - Priority: 1
 #   Regex: .*
 # IncludeIsMainRegex: (Test)?$
-# IndentCaseLabels: false
+IndentCaseLabels: true
+IntegerLiteralSeparator:
+  Binary: 8
+  Decimal: -1
+  Hex: 4
 # IndentWidth: 2
 # IndentWrappedFunctionNames: true
 # JavaScriptQuotes: Leave
