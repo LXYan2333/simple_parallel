@@ -1,11 +1,20 @@
+#include <cstddef>
 #include <fmt/core.h>
 #include <mpi.h>
 #include <simple_parallel/advance.h>
 #include <simple_parallel/simple_parallel.h>
 #include <tbb/tbb.h>
+#include <vector>
 
 auto virtual_main(int argc, char** argv) -> int {
     fmt::print("Hello from virtual main\n");
+    size_t i = 4;
+    std::vector<size_t> a = {1, 2, 3, 4};
+    simple_parallel::broadcast_stack_and_heap();
+    simple_parallel::print_memory_on_worker(a.data(), 4);
+    simple_parallel::run_lambda([&]() {
+        fmt::print("Hello{} from {}", i, MPI::COMM_WORLD.Get_rank());
+    });
     return 0;
 }
 

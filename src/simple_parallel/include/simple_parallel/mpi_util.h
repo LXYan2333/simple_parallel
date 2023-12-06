@@ -10,8 +10,9 @@ namespace simple_parallel::mpi_util {
         finalize,
         send_stack,
         send_heap,
-        run_function,
+        run_lambda,
         common,
+        print_memory,
     };
 
     // // https://www.mcs.anl.gov/research/projects/mpi/sendmode.html

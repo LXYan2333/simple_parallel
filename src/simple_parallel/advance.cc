@@ -1,14 +1,19 @@
+#include <array>
 #include <bigmpi.h>
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <dlfcn.h>
 #include <fmt/core.h>
+#include <functional>
 #include <gsl/gsl_util>
+#include <gsl/util>
 #include <mimalloc.h>
 #include <mpi.h>
 #include <simple_parallel/mpi_util.h>
+#include <string>
 #include <sys/mman.h>
+#include <vector>
 
 namespace simple_parallel {
 
@@ -46,7 +51,7 @@ namespace simple_parallel {
                          stack_len,
                          PROT_WRITE | PROT_READ,
                          MAP_PRIVATE | MAP_ANONYMOUS | MAP_GROWSDOWN | MAP_STACK
-                             | MAP_FIXED_NOREPLACE,
+                             | MAP_FIXED_NOREPLACE | MAP_NORESERVE,
                          -1,
                          0);
 
@@ -88,8 +93,9 @@ namespace simple_parallel {
                 void* mmap_result =
                     mmap(reinterpret_cast<void*>(new_heap_ptr),
                          heap_len,
-                         PROT_NONE,
-                         MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED_NOREPLACE,
+                         PROT_READ | PROT_WRITE,
+                         MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED_NOREPLACE
+                             | MAP_NORESERVE,
                          -1,
                          0);
 
@@ -120,7 +126,7 @@ namespace simple_parallel {
                 if (new_stack_ptr + heap_len > 0xFFFF'FFFF'FFFFuz) {
                     fmt::println(
                         stderr,
-                        "Failed to find a free virtual memory space for stack");
+                        "Failed to find a free virtual memory space for heap");
                     MPI::COMM_WORLD.Abort(111);
                 }
             }
@@ -183,17 +189,46 @@ namespace simple_parallel {
                                          MPI::BYTE,
                                          0,
                                          MPI_COMM_WORLD);
+                            fmt::println(stderr,
+                                         "worker {} received block {:X}",
+                                         MPI::COMM_WORLD.Get_rank(),
+                                         *reinterpret_cast<size_t*>(block_ptr));
                         }
                         break;
                     }
-                    case mpi_util::tag_enum::run_function: {
-                        throw std::runtime_error(
-                            "run_function not implemented!");
+                    case mpi_util::tag_enum::run_lambda: {
+                        void* pointer_to_std_function{};
+                        MPI::COMM_WORLD.Bcast(&pointer_to_std_function,
+                                              sizeof(void*),
+                                              MPI::BYTE,
+                                              0);
+                        fmt::println(
+                            stderr,
+                            "worker {} received lambda {:X}",
+                            MPI::COMM_WORLD.Get_rank(),
+                            reinterpret_cast<size_t>(pointer_to_std_function));
+                        (*reinterpret_cast<std::function<void()>*>(
+                            pointer_to_std_function))();
+
                         break;
                     }
                     case mpi_util::tag_enum::common: {
                         throw std::runtime_error(
                             "common tag should not be received here!");
+                        break;
+                    }
+                    case mpi_util::tag_enum::print_memory: {
+                        void* ptr{};
+                        size_t len_in_byte{};
+                        MPI::COMM_WORLD.Bcast(
+                            &ptr, sizeof(void*), MPI::BYTE, 0);
+                        MPI::COMM_WORLD.Bcast(
+                            &len_in_byte, sizeof(size_t), MPI::BYTE, 0);
+                        for (size_t i = 0; i < len_in_byte; i++) {
+                            fmt::print(stderr,
+                                       "{:X}\n",
+                                       reinterpret_cast<char*>(ptr)[i]);
+                        }
                         break;
                     }
                     default: {
@@ -208,6 +243,10 @@ namespace simple_parallel {
             // tell all workers to receive stack
             mpi_util::tag_enum tag = mpi_util::tag_enum::send_stack;
             MPI::COMM_WORLD.Bcast(&tag, 1, MPI::INT, 0);
+
+            // send stack pointer to all workers
+            MPI::COMM_WORLD.Bcast(
+                &stack_frame_ptr, sizeof(void*), MPI::BYTE, 0);
 
             // send stack length to all workers
             size_t stack_len = reinterpret_cast<size_t>(stack_ptr)
@@ -230,7 +269,9 @@ namespace simple_parallel {
                                             void* block,
                                             size_t block_size,
                                             void* /*unused*/) -> bool {
-                assert(block != nullptr);
+                if (block == nullptr) {
+                    return true;
+                }
                 MPI::COMM_WORLD.Bcast(&block, sizeof(void*), MPI::BYTE, 0);
                 MPI::COMM_WORLD.Bcast(
                     &block_size, sizeof(size_t), MPI::BYTE, 0);
@@ -244,12 +285,20 @@ namespace simple_parallel {
             }
         } // namespace
 
-        auto send_heap(mi_heap_t* heap) -> void {
+        auto send_heap(mi_heap_t* target_heap) -> void {
             // tell all workers to receive heap
             mpi_util::tag_enum tag = mpi_util::tag_enum::send_heap;
             MPI::COMM_WORLD.Bcast(&tag, 1, MPI::INT, 0);
-            mi_heap_visit_blocks(
-                heap, true, &simple_parallel_send_block, nullptr);
+            mi_heap_t* backing_heap = mi_heap_get_backing();
+            // probably MPI will malloc some memory, so temporarily switch to
+            // default heap
+            {
+                mi_heap_set_default(backing_heap);
+                gsl::final_action restore_heap{
+                    [&target_heap]() { mi_heap_set_default(target_heap); }};
+                mi_heap_visit_blocks(
+                    target_heap, true, &simple_parallel_send_block, nullptr);
+            }
             // tell all workers to stop receiving heap
             MPI::COMM_WORLD.Bcast(nullptr, sizeof(void*), MPI::BYTE, 0);
         }
