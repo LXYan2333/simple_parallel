@@ -24,21 +24,22 @@ extern "C" {
             int s_p_end_index;
 
 #define SIMPLE_PARALLEL_END                                                    \
-    }                                                                          \
-    ;                                                                          \
-    simple_parallel_run_lambda(&simple_parallel_lambda_tag, true);             \
-    }                                                                          \
-    ;
+        };                                                                     \
+        simple_parallel_run_lambda(&simple_parallel_lambda_tag, true);         \
+    };
 
 #define SIMPLE_PARALLEL_OMP_DYNAMIC_SCEDULE_BEGIN(                             \
     _start_index, _end_index, _grain_size)                                     \
     {                                                                          \
-        int     simple_parallel_start_index = _start_index;                    \
-        int     simple_parallel_end_index   = _end_index;                      \
-        int     simple_parallel_grain_size  = _grain_size;                     \
-        int     simple_parallel_progress    = _start_index;                    \
+        int simple_parallel_start_index = _start_index;                        \
+        int simple_parallel_end_index   = _end_index;                          \
+        int simple_parallel_grain_size  = _grain_size;                         \
+        int simple_parallel_progress    = _start_index;                        \
+                                                                               \
         MPI_Win win;                                                           \
-        _Pragma("omp masked") {                                                \
+                                                                               \
+        _Pragma("omp masked")                                                  \
+        {                                                                      \
             MPI_Win_create(&simple_parallel_progress,                          \
                            sizeof(int),                                        \
                            sizeof(int),                                        \
@@ -56,8 +57,8 @@ extern "C" {
                                  0,                                            \
                                  MPI_SUM,                                      \
                                  win);                                         \
-            _Pragma("omp barrier") if (s_p_start_index                         \
-                                       >= simple_parallel_end_index) {         \
+            _Pragma("omp barrier")                                             \
+            if (s_p_start_index >= simple_parallel_end_index) {                \
                 break;                                                         \
             }                                                                  \
             s_p_end_index =                                                    \
@@ -67,9 +68,10 @@ extern "C" {
                     : s_p_start_index + simple_parallel_grain_size;
 
 #define SIMPLE_PARALLEL_OMP_DYNAMIC_SCEDULE_END                                \
-    }                                                                          \
-    _Pragma("omp masked") {                                                    \
-        MPI_Barrier(MPI_COMM_WORLD);                                           \
-        MPI_Win_free(&win);                                                    \
-    }                                                                          \
+        }                                                                      \
+        _Pragma("omp masked")                                                  \
+        {                                                                      \
+            MPI_Barrier(MPI_COMM_WORLD);                                       \
+            MPI_Win_free(&win);                                                \
+        }                                                                      \
     }
