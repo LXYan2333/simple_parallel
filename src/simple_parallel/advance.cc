@@ -1,4 +1,5 @@
-#include <array>
+#include <simple_parallel/advance.h>
+
 #include <bigmpi.h>
 #include <cassert>
 #include <cstddef>
@@ -6,27 +7,35 @@
 #include <dlfcn.h>
 #include <fmt/core.h>
 #include <functional>
-#include <gsl/gsl_util>
 #include <gsl/util>
+#include <internal_use_only/config.h>
 #include <mimalloc.h>
 #include <mpi.h>
 #include <simple_parallel/mpi_util.h>
-#include <string>
 #include <sys/mman.h>
-#include <vector>
+#include <sys/types.h>
+
+#include <sys/personality.h>
+
+#ifndef HAVE_PERSONALITY
+    #include <syscall.h>
+    #define personality(pers) ((long)syscall(SYS_personality, pers))
+#endif
 
 namespace simple_parallel {
 
     extern mi_heap_t* heap;
 
-    extern struct stack_and_heap_info {
-        size_t stack_len;
-        void* stack_ptr;
-        size_t heap_len;
-        void* heap_ptr;
-    } stack_and_heap_info;
+    extern struct stack_and_heap_info stack_and_heap_info;
 
     namespace advance {
+
+        // static
+
+        //     auto
+        //     disable_aslr() {
+        //     // disable ASLR
+        // }
 
         auto run_main(char* executable) {
             dlopen(executable, RTLD_LAZY);
@@ -36,7 +45,8 @@ namespace simple_parallel {
             }
         }
 
-        auto find_free_virtual_space(size_t stack_len, size_t heap_len) {
+        auto find_free_virtual_space(size_t stack_len, size_t heap_len)
+            -> struct stack_and_heap_info {
 
             // MPI::Add_error_string(111,
             //                       "Failed to find a free virtual memory
@@ -49,7 +59,12 @@ namespace simple_parallel {
                 void* mmap_result =
                     mmap(reinterpret_cast<void*>(new_stack_ptr),
                          stack_len,
+                // gcc's nested function extension requires executable stack
+#ifdef SIMPLE_PARALLEL_COMPILER_GNU
+                         PROT_WRITE | PROT_READ | PROT_EXEC,
+#else
                          PROT_WRITE | PROT_READ,
+#endif
                          MAP_PRIVATE | MAP_ANONYMOUS | MAP_GROWSDOWN | MAP_STACK
                              | MAP_FIXED_NOREPLACE | MAP_NORESERVE,
                          -1,
@@ -137,9 +152,12 @@ namespace simple_parallel {
             };
 
             return r;
+
         }
 
-        auto worker() -> void {
+        auto
+        worker() -> void {
+
             assert(MPI::COMM_WORLD.Get_rank() != 0);
 
             void* myself = dlopen(nullptr, RTLD_LAZY);
@@ -197,9 +215,10 @@ namespace simple_parallel {
                         break;
                     }
                     case mpi_util::tag_enum::run_lambda: {
-                        void* pointer_to_std_function{};
+                        using function = std::function<void()>;
+                        function* pointer_to_std_function{};
                         MPI::COMM_WORLD.Bcast(&pointer_to_std_function,
-                                              sizeof(void*),
+                                              sizeof(function*),
                                               MPI::BYTE,
                                               0);
                         fmt::println(
@@ -207,8 +226,7 @@ namespace simple_parallel {
                             "worker {} received lambda {:X}",
                             MPI::COMM_WORLD.Get_rank(),
                             reinterpret_cast<size_t>(pointer_to_std_function));
-                        (*reinterpret_cast<std::function<void()>*>(
-                            pointer_to_std_function))();
+                        (*pointer_to_std_function)();
 
                         break;
                     }
@@ -226,9 +244,34 @@ namespace simple_parallel {
                             &len_in_byte, sizeof(size_t), MPI::BYTE, 0);
                         for (size_t i = 0; i < len_in_byte; i++) {
                             fmt::print(stderr,
-                                       "{:X}\n",
-                                       reinterpret_cast<char*>(ptr)[i]);
+                                       "{:X}",
+                                       reinterpret_cast<u_int8_t*>(ptr)[i]);
                         }
+                        fmt::print(stderr, "\n");
+                        break;
+                    }
+                    case mpi_util::tag_enum::dynamic_schedule_reduce: {
+                        // MPI window to store the reduce progress
+                        int reduce_progress{};
+                        MPI::Info info = MPI::Info::Create();
+                        MPI::Win window = MPI::Win::Create(&reduce_progress,
+                                                           sizeof(int),
+                                                           sizeof(int),
+                                                           info,
+                                                           MPI::COMM_WORLD);
+                        gsl::final_action window_final_action{[&] {
+                            MPI::COMM_WORLD.Barrier();
+                            window.Free();
+                        }};
+                        window.Fence(0);
+
+                        using function = std::function<void(const MPI::Win&)>;
+                        function* pointer_to_std_function{};
+                        MPI::COMM_WORLD.Bcast(&pointer_to_std_function,
+                                              sizeof(function*),
+                                              MPI::BYTE,
+                                              0);
+                        (*pointer_to_std_function)(window);
                         break;
                     }
                     default: {
@@ -239,7 +282,7 @@ namespace simple_parallel {
             }
         }
 
-        auto send_stack(void* stack_frame_ptr, void* stack_ptr) {
+        auto send_stack(void* stack_frame_ptr, void* stack_ptr) -> void {
             // tell all workers to receive stack
             mpi_util::tag_enum tag = mpi_util::tag_enum::send_stack;
             MPI::COMM_WORLD.Bcast(&tag, 1, MPI::INT, 0);
@@ -295,14 +338,13 @@ namespace simple_parallel {
             {
                 mi_heap_set_default(backing_heap);
                 gsl::final_action restore_heap{
-                    [&target_heap]() { mi_heap_set_default(target_heap); }};
+                    [&target_heap] { mi_heap_set_default(target_heap); }};
                 mi_heap_visit_blocks(
                     target_heap, true, &simple_parallel_send_block, nullptr);
             }
             // tell all workers to stop receiving heap
-            MPI::COMM_WORLD.Bcast(nullptr, sizeof(void*), MPI::BYTE, 0);
+            void* null_ptr = nullptr;
+            MPI::COMM_WORLD.Bcast(&null_ptr, sizeof(void*), MPI::BYTE, 0);
         }
-
-        // TODO(lxyan): Maybe send global variable too?
     } // namespace advance
 } // namespace simple_parallel

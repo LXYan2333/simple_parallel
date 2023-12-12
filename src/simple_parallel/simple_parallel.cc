@@ -70,8 +70,7 @@ namespace simple_parallel {
                         2,
                         argc,
                         argv);
-            mpi_util::tag_enum init_tag = mpi_util::tag_enum::init;
-            MPI::COMM_WORLD.Bcast(&init_tag, 1, MPI::INT, 0);
+            mpi_util::broadcast_tag(mpi_util::tag_enum::init);
             swapcontext(&context_current, &target_context);
 
             mpi_util::tag_enum finalize_tag = mpi_util::tag_enum::finalize;

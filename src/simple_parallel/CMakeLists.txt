@@ -1,5 +1,4 @@
 aux_source_directory(. source)
-
 add_library(simple_parallel ${source})
 
 target_include_directories(
@@ -14,9 +13,7 @@ target_link_libraries(
 
 target_link_system_libraries(
     simple_parallel 
-    PUBLIC  TBB::tbb
-            MPI::MPI_CXX
-            PkgConfig::HWLOC
+    PUBLIC  MPI::MPI_CXX
             mimalloc
             fmt::fmt
             Microsoft.GSL::GSL

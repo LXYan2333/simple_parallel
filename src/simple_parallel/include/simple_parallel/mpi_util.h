@@ -1,6 +1,7 @@
 #pragma once
 
 #include <bigmpi.h>
+#include <cassert>
 #include <cstdint>
 #include <mpi.h>
 
@@ -13,7 +14,13 @@ namespace simple_parallel::mpi_util {
         run_lambda,
         common,
         print_memory,
+        dynamic_schedule_reduce,
     };
+
+    inline auto broadcast_tag(tag_enum tag) {
+        assert(MPI::COMM_WORLD.Get_rank() == 0);
+        MPI::COMM_WORLD.Bcast(&tag, 1, MPI::INT, 0);
+    }
 
     // // https://www.mcs.anl.gov/research/projects/mpi/sendmode.html
     // enum send_mode {
