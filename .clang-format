@@ -1,9 +1,50 @@
 BasedOnStyle: LLVM
 IndentWidth: 4
+AlignArrayOfStructures: Right
+
+AlignConsecutiveMacros:
+  Enabled: true
+  AcrossEmptyLines: false
+  AcrossComments: true
+
+AlignConsecutiveAssignments:
+  Enabled: true
+  AcrossEmptyLines: false
+  AcrossComments: true
+  AlignCompound: true
+  PadOperators: true
+
+AlignConsecutiveBitFields:
+  Enabled: true
+  AcrossEmptyLines: false
+  AcrossComments: true
+
+AlignConsecutiveDeclarations:
+  Enabled: true
+  AcrossEmptyLines: false
+  AcrossComments: true
+
+AlignConsecutiveShortCaseStatements:
+  Enabled: true
+  AcrossEmptyLines: false
+  AcrossComments: true
+  AlignCaseColons: true
+
+AlignEscapedNewlines: Right
+
 AlignOperands: Align
+
+AlignTrailingComments: 
+  Kind: Always
+  OverEmptyLines: 0
+
 AllowAllArgumentsOnNextLine: true
 AllowAllParametersOfDeclarationOnNextLine: true
 AlwaysBreakTemplateDeclarations: Yes
+
+AllowShortBlocksOnASingleLine: Empty
+AllowShortCaseLabelsOnASingleLine: true
+
 BinPackArguments: false
 BinPackParameters: false
 BreakBeforeBinaryOperators: NonAssignment
@@ -91,7 +132,7 @@ IntegerLiteralSeparator:
 # Language: Cpp
 # MacroBlockBegin: ''
 # MacroBlockEnd: ''
-# MaxEmptyLinesToKeep: 2
+MaxEmptyLinesToKeep: 2
 NamespaceIndentation: All
 # ObjCBlockIndentWidth: 7
 # ObjCSpaceAfterProperty: true
