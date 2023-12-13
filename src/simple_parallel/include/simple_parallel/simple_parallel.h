@@ -91,14 +91,19 @@ namespace simple_parallel {
         mpi_util::broadcast_tag(mpi_util::tag_enum::dynamic_schedule_reduce);
 
         // MPI window to store the reduce progress
-        int       reduce_progress = start_index;
-        MPI::Info info            = MPI::Info::Create();
-        MPI::Win  window          = MPI::Win::Create(
-            &reduce_progress, sizeof(int), sizeof(int), info, MPI::COMM_WORLD);
+        int reduce_progress = start_index;
+
+        MPI::Win window = MPI::Win::Create(&reduce_progress,
+                                           sizeof(int),
+                                           sizeof(int),
+                                           MPI::INFO_NULL,
+                                           MPI::COMM_WORLD);
+
         gsl::final_action window_final_action{[&] {
             MPI::COMM_WORLD.Barrier();
             window.Free();
         }};
+
         window.Fence(0);
 
         function* pointer_to_std_function = &f;
@@ -114,3 +119,65 @@ namespace simple_parallel {
         MPI::COMM_WORLD.Bcast(&len_in_byte, sizeof(size_t), MPI::BYTE, 0);
     }
 } // namespace simple_parallel
+
+#define SIMPLE_PARALLEL_BEGIN(_parallel_run)                                   \
+    const bool simple_parallel_run = _parallel_run;                            \
+    simple_parallel::run_lambda([&] {                                          \
+        int s_p_start_index;
+
+#define SIMPLE_PARALLEL_END                                                    \
+    }, simple_parallel_run);
+
+#define SIMPLE_PARALLEL_OMP_DYNAMIC_SCEDULE_BEGIN(                             \
+    _start_index, _end_index, _grain_size)                                     \
+    {                                                                          \
+        int simple_parallel_start_index = _start_index;                        \
+        int simple_parallel_end_index   = _end_index;                          \
+        int simple_parallel_grain_size  = _grain_size;                         \
+        int simple_parallel_progress    = _start_index;                        \
+                                                                               \
+        MPI::Win window;                                                       \
+        _Pragma("omp masked")                                                  \
+        if (simple_parallel_run) {                                             \
+        window = MPI::Win::Create(&simple_parallel_progress,                   \
+                                  sizeof(int),                                 \
+                                  sizeof(int),                                 \
+                                  MPI::INFO_NULL,                              \
+                                  MPI::COMM_WORLD);                            \
+        }                                                                      \
+        window.Fence(0);                                                       \
+                                                                               \
+        _Pragma("omp masked")                                                  \
+        gsl::final_action{[&] {                                                \
+            if (simple_parallel_run) {                                         \
+                MPI_Barrier(MPI_COMM_WORLD);                                   \
+                window.Free();                                                 \
+            }                                                                  \
+        }};                                                                    \
+        _Pragma("omp masked")                                                  \
+        s_p_start_index = simple_parallel_start_index;                         \
+        while (true) {                                                         \
+            _Pragma("omp masked")                                              \
+            if (simple_parallel_run) {                                         \
+                MPI_Fetch_and_op(&simple_parallel_grain_size,                  \
+                                 &s_p_start_index,                             \
+                                 MPI_INT,                                      \
+                                 0,                                            \
+                                 0,                                            \
+                                 MPI_SUM,                                      \
+                                 window);                                      \
+            }                                                                  \
+            else {                                                             \
+                s_p_start_index += simple_parallel_grain_size;                 \
+            }                                                                  \
+            _Pragma("omp barrier")                                             \
+            if (s_p_start_index >= simple_parallel_end_index) {                \
+                break;                                                         \
+            }                                                                  \
+            int s_p_end_index =                                                \
+                std::min(s_p_start_index + simple_parallel_grain_size,         \
+                         simple_parallel_end_index);
+
+#define SIMPLE_PARALLEL_OMP_DYNAMIC_SCEDULE_END                                \
+        }                                                                      \
+    }

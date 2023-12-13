@@ -20,7 +20,7 @@ int main(void) {
 
     const bool run_in_parallel = true;
 
-    SIMPLE_PARALLEL_BEGIN(run_in_parallel)
+    SIMPLE_PARALLEL_C_BEGIN(run_in_parallel)
 
     int a, i;
 
@@ -30,12 +30,12 @@ int main(void) {
         a = 0;
 
         // To avoid race conditions, add a barrier here.
-        SIMPLE_PARALLEL_OMP_DYNAMIC_SCEDULE_BEGIN(0, 100, 100)
+        SIMPLE_PARALLEL_OMP_DYNAMIC_SCEDULE_C_BEGIN(0, 100, 100)
 #pragma omp for reduction(+ : a)
         for (i = s_p_start_index; i < s_p_end_index; i++) {
             a += i;
         }
-        SIMPLE_PARALLEL_OMP_DYNAMIC_SCEDULE_END
+        SIMPLE_PARALLEL_OMP_DYNAMIC_SCEDULE_C_END
 #pragma omp single
         printf("Sum is %d\n", a);
     }
@@ -44,7 +44,7 @@ int main(void) {
     } else {
         b = a;
     }
-    SIMPLE_PARALLEL_END
+    SIMPLE_PARALLEL_C_END
     printf("Final sum is %d\n", b);
     return 0;
 }

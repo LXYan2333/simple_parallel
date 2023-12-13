@@ -17,19 +17,19 @@ extern "C" {
 }
 #endif
 
-#define SIMPLE_PARALLEL_BEGIN(_parallel_run)                                   \
+#define SIMPLE_PARALLEL_C_BEGIN(_parallel_run)                                 \
     {                                                                          \
         const bool simple_parallel_run = _parallel_run;                        \
         SIMPLE_PARALLEL_LAMBDA(simple_parallel_lambda_tag, void) {             \
             int s_p_start_index;
 
-#define SIMPLE_PARALLEL_END                                                    \
+#define SIMPLE_PARALLEL_C_END                                                  \
         };                                                                     \
         simple_parallel_run_lambda(&simple_parallel_lambda_tag,                \
                                    simple_parallel_run);                       \
     };
 
-#define SIMPLE_PARALLEL_OMP_DYNAMIC_SCEDULE_BEGIN(                             \
+#define SIMPLE_PARALLEL_OMP_DYNAMIC_SCEDULE_C_BEGIN(                           \
     _start_index, _end_index, _grain_size)                                     \
     {                                                                          \
         int simple_parallel_start_index = _start_index;                        \
@@ -74,7 +74,7 @@ extern "C" {
                     ? simple_parallel_end_index                                \
                     : s_p_start_index + simple_parallel_grain_size;
 
-#define SIMPLE_PARALLEL_OMP_DYNAMIC_SCEDULE_END                                \
+#define SIMPLE_PARALLEL_OMP_DYNAMIC_SCEDULE_C_END                              \
         }                                                                      \
         if (simple_parallel_run) {                                             \
             _Pragma("omp masked")                                              \
