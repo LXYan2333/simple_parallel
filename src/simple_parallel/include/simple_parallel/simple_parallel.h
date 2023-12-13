@@ -17,8 +17,14 @@ namespace simple_parallel {
     auto broadcast_stack_and_heap() -> bool;
 
     template <typename T>
-    auto run_lambda(T lambda, bool run_on_master = true) -> void {
+    auto run_lambda(T lambda, bool parallel_run = true) -> void {
         assert(MPI::COMM_WORLD.Get_rank() == 0);
+
+        // in some cases, we want to run the lambda only on the master process
+        if (!parallel_run) {
+            lambda();
+            return;
+        }
 
         std::function<void()> f = lambda;
         broadcast_stack_and_heap();
@@ -34,9 +40,8 @@ namespace simple_parallel {
 
         MPI::COMM_WORLD.Bcast(
             &pointer_to_std_function, sizeof(function*), MPI::BYTE, 0);
-        if (run_on_master) {
-            f();
-        }
+
+        f();
     }
 
     template <typename T, typename U, typename V>

@@ -11,7 +11,7 @@ extern "C" {
         simple_parallel::init(virtual_main, argc, argv, init_mpi);
     }
 
-    auto simple_parallel_run_lambda(void* lambda, bool run_on_master) -> void {
+    auto simple_parallel_run_lambda(void* lambda, bool parallel_run) -> void {
         simple_parallel::run_lambda(
             [&] {
 #ifdef SIMPLE_PARALLEL_COMPILER_GNU
@@ -25,6 +25,6 @@ extern "C" {
                 (*reinterpret_cast<void (^(*))(void)>(lambda))();
 #endif
             },
-            run_on_master);
+            parallel_run);
     };
 }

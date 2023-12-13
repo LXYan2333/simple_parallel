@@ -11,21 +11,23 @@ extern "C" {
                               char** argv,
                               bool   init_mpi);
 
-    void simple_parallel_run_lambda(void* lambda, bool run_on_master);
+    void simple_parallel_run_lambda(void* lambda, bool parallel_run);
 
 #ifdef __cplusplus
 }
 #endif
 
-#define SIMPLE_PARALLEL_BEGIN                                                  \
+#define SIMPLE_PARALLEL_BEGIN(_parallel_run)                                   \
     {                                                                          \
+        const bool simple_parallel_run = _parallel_run;                        \
         SIMPLE_PARALLEL_LAMBDA(simple_parallel_lambda_tag, void) {             \
             int s_p_start_index;                                               \
             int s_p_end_index;
 
 #define SIMPLE_PARALLEL_END                                                    \
         };                                                                     \
-        simple_parallel_run_lambda(&simple_parallel_lambda_tag, true);         \
+        simple_parallel_run_lambda(&simple_parallel_lambda_tag,                \
+                                   simple_parallel_run);                       \
     };
 
 #define SIMPLE_PARALLEL_OMP_DYNAMIC_SCEDULE_BEGIN(                             \
@@ -39,7 +41,7 @@ extern "C" {
         MPI_Win win;                                                           \
                                                                                \
         _Pragma("omp masked")                                                  \
-        {                                                                      \
+        if (simple_parallel_run) {                                             \
             MPI_Win_create(&simple_parallel_progress,                          \
                            sizeof(int),                                        \
                            sizeof(int),                                        \
@@ -48,8 +50,10 @@ extern "C" {
                            &win);                                              \
             MPI_Win_fence(0, win);                                             \
         }                                                                      \
+        s_p_start_index = simple_parallel_start_index;                         \
         while (true) {                                                         \
             _Pragma("omp masked")                                              \
+            if (simple_parallel_run) {                                         \
                 MPI_Fetch_and_op(&simple_parallel_grain_size,                  \
                                  &s_p_start_index,                             \
                                  MPI_INT,                                      \
@@ -57,6 +61,9 @@ extern "C" {
                                  0,                                            \
                                  MPI_SUM,                                      \
                                  win);                                         \
+            } else {                                                           \
+                s_p_start_index += simple_parallel_grain_size;                 \
+            }                                                                  \
             _Pragma("omp barrier")                                             \
             if (s_p_start_index >= simple_parallel_end_index) {                \
                 break;                                                         \
@@ -69,9 +76,11 @@ extern "C" {
 
 #define SIMPLE_PARALLEL_OMP_DYNAMIC_SCEDULE_END                                \
         }                                                                      \
-        _Pragma("omp masked")                                                  \
-        {                                                                      \
-            MPI_Barrier(MPI_COMM_WORLD);                                       \
-            MPI_Win_free(&win);                                                \
+        if (simple_parallel_run) {                                             \
+            _Pragma("omp masked")                                              \
+            {                                                                  \
+                MPI_Barrier(MPI_COMM_WORLD);                                   \
+                MPI_Win_free(&win);                                            \
+            }                                                                  \
         }                                                                      \
     }
