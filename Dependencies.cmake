@@ -18,6 +18,9 @@ function(simple_parallel_setup_dependencies)
 
         # https://github.com/jeffhammond/BigMPI
         # bigmpi's cmake is not standard, so we have to manually add it
+        if(NOT bigmpi_DIR)
+            message(FATAL_ERROR "bigmpi_DIR not set. Please set it to the directory containing the built bigmpi binaries and header files.")
+        endif()
         add_library(bigmpi INTERFACE)
         target_include_directories(bigmpi INTERFACE ${bigmpi_DIR}/src)
         target_link_libraries(bigmpi INTERFACE ${bigmpi_DIR}/lib/libbigmpi.so)
