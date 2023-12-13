@@ -11,29 +11,42 @@ function(simple_parallel_setup_dependencies)
     # For each dependency, see if it's
     # already been provided to us by a parent project
 
-    if(NOT TARGET mimalloc)
-        CPMAddPackage(
-            NAME mimalloc
-            GITHUB_REPOSITORY "microsoft/mimalloc"
-            VERSION 2.1.2)
-    endif()
+    if(simple_parallel_PACKAGING_MAINTAINER_MODE)
+        find_package(mimalloc CONFIG REQUIRED)
+        find_package(fmt CONFIG REQUIRED)
+        find_package(Microsoft.GSL CONFIG REQUIRED)
 
-    if(NOT TARGET bigmpi)
-        CPMAddPackage(
-            NAME bigmpi
-            GITHUB_REPOSITORY "jeffhammond/BigMPI"
-            VERSION 0.1)
-    endif()
-    if (bigmpi_ADDED)
-        target_include_directories(bigmpi INTERFACE ${bigmpi_SOURCE_DIR}/src)
-    endif()
+        # https://github.com/jeffhammond/BigMPI
+        # bigmpi's cmake is not standard, so we have to manually add it
+        add_library(bigmpi INTERFACE)
+        target_include_directories(bigmpi INTERFACE ${bigmpi_DIR}/src)
+        target_link_libraries(bigmpi INTERFACE ${bigmpi_DIR}/lib/libbigmpi.so)
+        target_include_directories(bigmpi INTERFACE ${bigmpi_DIR}/include)
 
-    if(NOT TARGET fmt::fmt)
-        CPMAddPackage("gh:fmtlib/fmt#10.1.1")
-    endif()
+    else()
+        if(NOT TARGET mimalloc)
+            CPMAddPackage(
+                NAME mimalloc
+                GITHUB_REPOSITORY "microsoft/mimalloc"
+                VERSION 2.1.2)
+        endif()
 
-    if(NOT TARGET Microsoft.GSL::GSL)
-        CPMAddPackage("gh:Microsoft/GSL#v4.0.0")
-    endif()
+        if(NOT TARGET bigmpi)
+            CPMAddPackage(
+                NAME bigmpi
+                GITHUB_REPOSITORY "jeffhammond/BigMPI"
+                VERSION 0.1)
+        endif()
+        if (bigmpi_ADDED)
+            target_include_directories(bigmpi INTERFACE ${bigmpi_SOURCE_DIR}/src)
+        endif()
 
+        if(NOT TARGET fmt::fmt)
+            CPMAddPackage("gh:fmtlib/fmt#10.1.1")
+        endif()
+
+        if(NOT TARGET Microsoft.GSL::GSL)
+            CPMAddPackage("gh:Microsoft/GSL#v4.0.0")
+        endif()
+    endif()
 endfunction()
