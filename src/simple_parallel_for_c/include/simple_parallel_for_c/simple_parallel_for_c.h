@@ -21,8 +21,7 @@ extern "C" {
     {                                                                          \
         const bool simple_parallel_run = _parallel_run;                        \
         SIMPLE_PARALLEL_LAMBDA(simple_parallel_lambda_tag, void) {             \
-            int s_p_start_index;                                               \
-            int s_p_end_index;
+            int s_p_start_index;
 
 #define SIMPLE_PARALLEL_END                                                    \
         };                                                                     \
@@ -50,6 +49,7 @@ extern "C" {
                            &win);                                              \
             MPI_Win_fence(0, win);                                             \
         }                                                                      \
+        _Pragma("omp masked")                                                  \
         s_p_start_index = simple_parallel_start_index;                         \
         while (true) {                                                         \
             _Pragma("omp masked")                                              \
@@ -68,7 +68,7 @@ extern "C" {
             if (s_p_start_index >= simple_parallel_end_index) {                \
                 break;                                                         \
             }                                                                  \
-            s_p_end_index =                                                    \
+            int s_p_end_index =                                                \
                 s_p_start_index + simple_parallel_grain_size                   \
                         > simple_parallel_end_index                            \
                     ? simple_parallel_end_index                                \

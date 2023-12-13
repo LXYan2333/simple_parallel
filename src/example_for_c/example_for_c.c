@@ -24,7 +24,7 @@ int main(void) {
 
     int a, i;
 
-#pragma omp parallel shared(a) private(i)
+#pragma omp parallel shared(a, s_p_start_index) private(i)
     {
 #pragma omp masked
         a = 0;
