@@ -19,7 +19,9 @@ extern "C" {
 
 #define SIMPLE_PARALLEL_C_BEGIN(_parallel_run)                                 \
     {                                                                          \
-        const bool simple_parallel_run = _parallel_run;                        \
+        int _s_p_mpi_size;                                                     \
+        MPI_Comm_size(MPI_COMM_WORLD, &_s_p_mpi_size);                         \
+        const bool simple_parallel_run = _s_p_mpi_size != 1 && (_parallel_run);\
         SIMPLE_PARALLEL_LAMBDA(simple_parallel_lambda_tag, void) {             \
             int s_p_start_index;
 
@@ -61,8 +63,6 @@ extern "C" {
                                  0,                                            \
                                  MPI_SUM,                                      \
                                  win);                                         \
-            } else {                                                           \
-                s_p_start_index += simple_parallel_grain_size;                 \
             }                                                                  \
             _Pragma("omp barrier")                                             \
             if (s_p_start_index >= simple_parallel_end_index) {                \
@@ -75,6 +75,10 @@ extern "C" {
                     : s_p_start_index + simple_parallel_grain_size;
 
 #define SIMPLE_PARALLEL_OMP_DYNAMIC_SCEDULE_C_END                              \
+            _Pragma("omp masked")                                              \
+            if (!simple_parallel_run) {                                        \
+                s_p_start_index += simple_parallel_grain_size;                 \
+            }                                                                  \
         }                                                                      \
         if (simple_parallel_run) {                                             \
             _Pragma("omp masked")                                              \

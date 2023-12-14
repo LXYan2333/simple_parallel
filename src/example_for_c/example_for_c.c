@@ -16,11 +16,11 @@
 
 int main(void) {
 
-    S_P_ASSIGN int b = 0;
+    S_P_ASSIGN int mpi_reduce_result = 0;
 
-    const bool run_in_parallel = true;
+    const bool run_in_mpi_parallel = true;
 
-    SIMPLE_PARALLEL_C_BEGIN(run_in_parallel)
+    SIMPLE_PARALLEL_C_BEGIN(run_in_mpi_parallel)
 
     int a, i;
 
@@ -30,7 +30,7 @@ int main(void) {
         a = 0;
 
         // To avoid race conditions, add a barrier here.
-        SIMPLE_PARALLEL_OMP_DYNAMIC_SCEDULE_C_BEGIN(0, 100, 100)
+        SIMPLE_PARALLEL_OMP_DYNAMIC_SCEDULE_C_BEGIN(0, 100, 10)
 #pragma omp for reduction(+ : a)
         for (i = s_p_start_index; i < s_p_end_index; i++) {
             a += i;
@@ -39,12 +39,13 @@ int main(void) {
 #pragma omp single
         printf("Sum is %d\n", a);
     }
-    if (run_in_parallel) {
-        MPI_Reduce(&a, &b, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+    if (run_in_mpi_parallel) {
+        MPI_Reduce(
+            &a, &mpi_reduce_result, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
     } else {
-        b = a;
+        mpi_reduce_result = a;
     }
     SIMPLE_PARALLEL_C_END
-    printf("Final sum is %d\n", b);
+    printf("Final sum is %d\n", mpi_reduce_result);
     return 0;
 }

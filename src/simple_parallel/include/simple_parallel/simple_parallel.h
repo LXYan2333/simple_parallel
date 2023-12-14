@@ -20,7 +20,7 @@ namespace simple_parallel {
         assert(MPI::COMM_WORLD.Get_rank() == 0);
 
         // in some cases, we want to run the lambda only on the master process
-        if (!parallel_run) {
+        if (MPI::COMM_WORLD.Get_size() == 1 || !parallel_run) {
             lambda();
             return;
         }
@@ -45,7 +45,8 @@ namespace simple_parallel {
 } // namespace simple_parallel
 
 #define SIMPLE_PARALLEL_BEGIN(_parallel_run)                                   \
-    const bool simple_parallel_run = _parallel_run;                            \
+    const bool simple_parallel_run =                                           \
+        MPI::COMM_WORLD.Get_size() != 1 && (_parallel_run);                    \
     simple_parallel::run_lambda([&] {                                          \
         int s_p_start_index;
 
@@ -90,8 +91,6 @@ namespace simple_parallel {
                                  0,                                            \
                                  MPI_SUM,                                      \
                                  window);                                      \
-            } else {                                                           \
-                s_p_start_index += simple_parallel_grain_size;                 \
             }                                                                  \
             _Pragma("omp barrier")                                             \
             if (s_p_start_index >= simple_parallel_end_index) {                \
@@ -102,5 +101,9 @@ namespace simple_parallel {
                          simple_parallel_end_index);
 
 #define SIMPLE_PARALLEL_OMP_DYNAMIC_SCEDULE_END                                \
+            _Pragma("omp barrier")                                             \
+            if (!simple_parallel_run) {                                        \
+                s_p_start_index += simple_parallel_grain_size;                 \
+            }                                                                  \
         }                                                                      \
     }
