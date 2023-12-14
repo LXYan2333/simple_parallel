@@ -159,8 +159,7 @@ namespace simple_parallel {
                                  0,                                            \
                                  MPI_SUM,                                      \
                                  window);                                      \
-            }                                                                  \
-            else {                                                             \
+            } else {                                                           \
                 s_p_start_index += simple_parallel_grain_size;                 \
             }                                                                  \
             _Pragma("omp barrier")                                             \
