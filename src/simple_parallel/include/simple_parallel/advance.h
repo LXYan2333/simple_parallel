@@ -14,6 +14,10 @@ namespace simple_parallel {
 
     namespace advance {
 
+        auto broadcast_stack_and_heap() -> void;
+
+        auto print_memory_on_worker(void* ptr, size_t len_in_byte) -> void;
+
         auto worker() -> void;
 
         auto send_stack(void* stack_frame_ptr, void* stack_ptr) -> void;

@@ -346,5 +346,25 @@ namespace simple_parallel {
             void* null_ptr = nullptr;
             MPI::COMM_WORLD.Bcast(&null_ptr, sizeof(void*), MPI::BYTE, 0);
         }
+
+        // this function can only be called by my_rank=0 MPI process
+        auto broadcast_stack_and_heap() -> void {
+            // only assert in debug mode
+            assert(MPI::COMM_WORLD.Get_rank() == 0);
+
+            // used to get the stack pointer
+            int rsp = 0;
+
+            // send my_rank = 0's stack
+            send_stack(&rsp, stack_and_heap_info.stack_ptr);
+            send_heap(heap);
+        }
+
+        auto print_memory_on_worker(void* ptr, size_t len_in_byte) -> void {
+            assert(MPI::COMM_WORLD.Get_rank() == 0);
+            mpi_util::broadcast_tag(mpi_util::tag_enum::print_memory);
+            MPI::COMM_WORLD.Bcast(&ptr, sizeof(void*), MPI::BYTE, 0);
+            MPI::COMM_WORLD.Bcast(&len_in_byte, sizeof(size_t), MPI::BYTE, 0);
+        }
     } // namespace advance
 } // namespace simple_parallel

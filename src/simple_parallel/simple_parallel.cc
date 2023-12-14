@@ -85,17 +85,4 @@ namespace simple_parallel {
         MPI::Finalize();
     }
 
-    // this function can only be called by my_rank=0 MPI process
-    auto broadcast_stack_and_heap() {
-        // only assert in debug mode
-        assert(MPI::COMM_WORLD.Get_rank() == 0);
-
-        // used to get the stack pointer
-        int rsp = 0;
-
-        // send my_rank = 0's stack
-        advance::send_stack(&rsp, stack_and_heap_info.stack_ptr);
-        advance::send_heap(heap);
-    }
-
 } // namespace simple_parallel

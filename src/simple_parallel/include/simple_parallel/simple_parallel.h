@@ -6,6 +6,7 @@
 #include <functional>
 #include <gsl/util>
 #include <mpi.h>
+#include <simple_parallel/advance.h>
 #include <simple_parallel/mpi_util.h>
 
 namespace simple_parallel {
@@ -13,8 +14,6 @@ namespace simple_parallel {
     auto
     init(int (*virtual_main)(int, char**), int argc, char** argv, bool init_mpi)
         -> void;
-
-    auto broadcast_stack_and_heap() -> bool;
 
     template <typename T>
     auto run_lambda(T lambda, bool parallel_run = true) -> void {
@@ -27,7 +26,7 @@ namespace simple_parallel {
         }
 
         std::function<void()> f = lambda;
-        broadcast_stack_and_heap();
+        advance::broadcast_stack_and_heap();
 
         using function                    = std::function<void()>;
         function* pointer_to_std_function = &f;
@@ -85,7 +84,7 @@ namespace simple_parallel {
             }
         };
 
-        broadcast_stack_and_heap();
+        advance::broadcast_stack_and_heap();
 
         // tell worker processes to reduce
         mpi_util::broadcast_tag(mpi_util::tag_enum::dynamic_schedule_reduce);
@@ -112,12 +111,6 @@ namespace simple_parallel {
         f(window);
     }
 
-    static auto print_memory_on_worker(void* ptr, size_t len_in_byte) -> void {
-        assert(MPI::COMM_WORLD.Get_rank() == 0);
-        mpi_util::broadcast_tag(mpi_util::tag_enum::print_memory);
-        MPI::COMM_WORLD.Bcast(&ptr, sizeof(void*), MPI::BYTE, 0);
-        MPI::COMM_WORLD.Bcast(&len_in_byte, sizeof(size_t), MPI::BYTE, 0);
-    }
 } // namespace simple_parallel
 
 #define SIMPLE_PARALLEL_BEGIN(_parallel_run)                                   \
