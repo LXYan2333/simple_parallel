@@ -6,31 +6,6 @@
 
 auto main() -> int {
 
-    fmt::print("=================\nstart reduce\n=================\n");
-    int reduce_result{};
-    simple_parallel::dynamic_schedule_reduce(
-        0,
-        110,
-        20,
-        [] { return 0; },
-        [](const int& start, const int& end, const int& identity) -> int {
-            fmt::println("rank{} start {} end {} identity {}",
-                         MPI::COMM_WORLD.Get_rank(),
-                         start,
-                         end,
-                         identity);
-            return identity + (start + end - 1) * (end - start) / 2;
-        },
-        [&](const int& identity) {
-            fmt::println("sum is {}", identity);
-            MPI::COMM_WORLD.Reduce(
-                &identity, &reduce_result, 1, MPI::INT, MPI::SUM, 0);
-            return identity;
-        });
-
-    fmt::println("reduce result is {}", reduce_result);
-
-
     // original from OpenMP's example
     // https://github.com/OpenMP/Examples/blob/main/data_environment/sources/reduction.6.c
 

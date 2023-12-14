@@ -250,30 +250,6 @@ namespace simple_parallel {
                         fmt::print(stderr, "\n");
                         break;
                     }
-                    case mpi_util::tag_enum::dynamic_schedule_reduce: {
-                        // MPI window to store the reduce progress
-                        int reduce_progress{};
-                        MPI::Info info = MPI::Info::Create();
-                        MPI::Win window = MPI::Win::Create(&reduce_progress,
-                                                           sizeof(int),
-                                                           sizeof(int),
-                                                           info,
-                                                           MPI::COMM_WORLD);
-                        gsl::final_action window_final_action{[&] {
-                            MPI::COMM_WORLD.Barrier();
-                            window.Free();
-                        }};
-                        window.Fence(0);
-
-                        using function = std::function<void(const MPI::Win&)>;
-                        function* pointer_to_std_function{};
-                        MPI::COMM_WORLD.Bcast(&pointer_to_std_function,
-                                              sizeof(function*),
-                                              MPI::BYTE,
-                                              0);
-                        (*pointer_to_std_function)(window);
-                        break;
-                    }
                     default: {
                         throw std::runtime_error(
                             "Invalic tag received in worker!");

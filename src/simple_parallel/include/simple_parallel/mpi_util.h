@@ -14,7 +14,6 @@ namespace simple_parallel::mpi_util {
         run_lambda,
         common,
         print_memory,
-        dynamic_schedule_reduce,
     };
 
     inline auto broadcast_tag(tag_enum tag) {
