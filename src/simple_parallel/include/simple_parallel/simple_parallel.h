@@ -132,16 +132,16 @@ namespace simple_parallel {
         MPI::Win window;                                                       \
         _Pragma("omp masked")                                                  \
         if (simple_parallel_run) {                                             \
-        window = MPI::Win::Create(&simple_parallel_progress,                   \
-                                  sizeof(int),                                 \
-                                  sizeof(int),                                 \
-                                  MPI::INFO_NULL,                              \
-                                  MPI::COMM_WORLD);                            \
+            window = MPI::Win::Create(&simple_parallel_progress,               \
+                                      sizeof(int),                             \
+                                      sizeof(int),                             \
+                                      MPI::INFO_NULL,                          \
+                                      MPI::COMM_WORLD);                        \
+            window.Fence(0);                                                   \
         }                                                                      \
-        window.Fence(0);                                                       \
                                                                                \
         _Pragma("omp masked")                                                  \
-        gsl::final_action{[&] {                                                \
+        gsl::final_action free_mpi_window{[&] {                                \
             if (simple_parallel_run) {                                         \
                 MPI_Barrier(MPI_COMM_WORLD);                                   \
                 window.Free();                                                 \
