@@ -39,7 +39,7 @@ extern "C" {
         int simple_parallel_grain_size  = _grain_size;                         \
         int simple_parallel_progress    = _start_index;                        \
                                                                                \
-        MPI_Win win;                                                           \
+        MPI_Win window;                                                        \
                                                                                \
         _Pragma("omp masked")                                                  \
         if (simple_parallel_run) {                                             \
@@ -48,8 +48,8 @@ extern "C" {
                            sizeof(int),                                        \
                            MPI_INFO_NULL,                                      \
                            MPI_COMM_WORLD,                                     \
-                           &win);                                              \
-            MPI_Win_fence(0, win);                                             \
+                           &window);                                           \
+            MPI_Win_fence(0, window);                                          \
         }                                                                      \
         _Pragma("omp masked")                                                  \
         s_p_start_index = simple_parallel_start_index;                         \
@@ -63,7 +63,7 @@ extern "C" {
                                  0,                                            \
                                  0,                                            \
                                  MPI_SUM,                                      \
-                                 win);                                         \
+                                 window);                                      \
                 MPI_Win_unlock(0,window);                                      \
             }                                                                  \
             _Pragma("omp barrier")                                             \
@@ -85,8 +85,8 @@ extern "C" {
         if (simple_parallel_run) {                                             \
             _Pragma("omp masked")                                              \
             {                                                                  \
-                window.Fence(0);                                               \
-                MPI_Win_free(&win);                                            \
+                MPI_Win_fence(0, window);                                      \
+                MPI_Win_free(&window);                                         \
             }                                                                  \
         }                                                                      \
     }
