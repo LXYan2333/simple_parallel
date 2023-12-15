@@ -56,6 +56,7 @@ extern "C" {
         while (true) {                                                         \
             _Pragma("omp masked")                                              \
             if (simple_parallel_run) {                                         \
+                MPI_Win_lock(MPI_LOCK_SHARED, 0, 0, window);                   \
                 MPI_Fetch_and_op(&simple_parallel_grain_size,                  \
                                  &s_p_start_index,                             \
                                  MPI_INT,                                      \
@@ -63,6 +64,7 @@ extern "C" {
                                  0,                                            \
                                  MPI_SUM,                                      \
                                  win);                                         \
+                MPI_Win_unlock(0,window);                                      \
             }                                                                  \
             _Pragma("omp barrier")                                             \
             if (s_p_start_index >= simple_parallel_end_index) {                \
@@ -83,7 +85,7 @@ extern "C" {
         if (simple_parallel_run) {                                             \
             _Pragma("omp masked")                                              \
             {                                                                  \
-                MPI_Barrier(MPI_COMM_WORLD);                                   \
+                window.Fence(0);                                               \
                 MPI_Win_free(&win);                                            \
             }                                                                  \
         }                                                                      \

@@ -79,6 +79,7 @@ namespace simple_parallel {
         while (true) {                                                         \
             _Pragma("omp masked")                                              \
             if (simple_parallel_run) {                                         \
+                window.Lock(MPI::LOCK_SHARED, 0, 0);                           \
                 MPI_Fetch_and_op(&simple_parallel_grain_size,                  \
                                  &s_p_start_index,                             \
                                  MPI_INT,                                      \
@@ -86,6 +87,7 @@ namespace simple_parallel {
                                  0,                                            \
                                  MPI_SUM,                                      \
                                  window);                                      \
+                window.Unlock(0);                                              \
             }                                                                  \
             _Pragma("omp barrier")                                             \
             if (s_p_start_index >= simple_parallel_end_index) {                \
@@ -103,7 +105,7 @@ namespace simple_parallel {
         }                                                                      \
         _Pragma("omp masked")                                                  \
         if (simple_parallel_run) {                                             \
-            MPI::COMM_WORLD.Barrier();                                         \
+            window.Fence(0);                                                   \
             window.Free();                                                     \
         }                                                                      \
     }
