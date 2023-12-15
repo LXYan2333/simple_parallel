@@ -75,13 +75,6 @@ namespace simple_parallel {
         }                                                                      \
                                                                                \
         _Pragma("omp masked")                                                  \
-        gsl::final_action free_mpi_window{[&] {                                \
-            if (simple_parallel_run) {                                         \
-                MPI_Barrier(MPI_COMM_WORLD);                                   \
-                window.Free();                                                 \
-            }                                                                  \
-        }};                                                                    \
-        _Pragma("omp masked")                                                  \
         s_p_start_index = simple_parallel_start_index;                         \
         while (true) {                                                         \
             _Pragma("omp masked")                                              \
@@ -107,5 +100,10 @@ namespace simple_parallel {
             if (!simple_parallel_run) {                                        \
                 s_p_start_index += simple_parallel_grain_size;                 \
             }                                                                  \
+        }                                                                      \
+        _Pragma("omp masked")                                                  \
+        if (simple_parallel_run) {                                             \
+            MPI::COMM_WORLD.Barrier();                                         \
+            window.Free();                                                     \
         }                                                                      \
     }
