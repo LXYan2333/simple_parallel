@@ -39,7 +39,7 @@ auto main() -> int {
         }
         SIMPLE_PARALLEL_OMP_DYNAMIC_SCEDULE_END
 
-#pragma omp single
+#pragma omp masked
         MPI::COMM_WORLD.Reduce(
             &a, &mpi_reduce_result, 1, MPI::INT, MPI::SUM, 0);
     }
