@@ -1,7 +1,8 @@
-aux_source_directory(. source)
+add_executable(simple_parallel_example example.cc)
 
-add_executable(simple_parallel_example ${source})
+find_package(OpenMP REQUIRED)
 
 target_link_system_libraries(simple_parallel_example
     PRIVATE fmt::fmt
-            simple_parallel)
+            simple_parallel
+            OpenMP::OpenMP_CXX)
