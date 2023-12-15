@@ -45,13 +45,15 @@ namespace simple_parallel {
 } // namespace simple_parallel
 
 #define SIMPLE_PARALLEL_BEGIN(_parallel_run)                                   \
-    const bool simple_parallel_run =                                           \
-        MPI::COMM_WORLD.Get_size() != 1 && (_parallel_run);                    \
-    simple_parallel::run_lambda([&] {                                          \
-        int s_p_start_index;
+    {                                                                          \
+        const bool simple_parallel_run =                                       \
+            MPI::COMM_WORLD.Get_size() != 1 && (_parallel_run);                \
+        simple_parallel::run_lambda([&] {                                      \
+            int s_p_start_index;
 
 #define SIMPLE_PARALLEL_END                                                    \
-    }, simple_parallel_run);
+        }, simple_parallel_run);                                               \
+    }
 
 #define SIMPLE_PARALLEL_OMP_DYNAMIC_SCEDULE_BEGIN(                             \
     _start_index, _end_index, _grain_size)                                     \
@@ -101,7 +103,7 @@ namespace simple_parallel {
                          simple_parallel_end_index);
 
 #define SIMPLE_PARALLEL_OMP_DYNAMIC_SCEDULE_END                                \
-            _Pragma("omp masked")                                             \
+            _Pragma("omp masked")                                              \
             if (!simple_parallel_run) {                                        \
                 s_p_start_index += simple_parallel_grain_size;                 \
             }                                                                  \
