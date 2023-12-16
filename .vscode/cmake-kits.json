@@ -30,5 +30,21 @@
             "MPI_HOME": "/opt/intel/oneapi/mpi/latest/"
         },
         "description": "GCC with intel mpi"
+    },
+    {
+        "name": "GCC intel mpi Slater",
+        "environmentSetupScript": "/export/home/lxyan/intel/oneapi/setvars.sh",
+        "compilers": {
+            "C": "gcc",
+            "CXX": "g++"
+        },
+        "cmakeSettings": {
+            "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+            "simple_parallel_ENABLE_USER_LINKER": "OFF"
+        },
+        "environmentVariables": {
+            "MPI_HOME": "/export/home/lxyan/oneapi/mpi/latest/"
+        },
+        "description": "GCC with intel mpi, on Slater server"
     }
 ]
