@@ -1,4 +1,4 @@
-#include <cassert>
+#include <cstddef>
 #include <cstdio>
 #include <fmt/core.h>
 #include <iostream>
@@ -37,7 +37,7 @@ namespace simple_parallel {
             1024uz * 1024 * 1024 * 8, // 8GB
             1024uz * 1024 * 1024 * 1024 * 20 /* 20TB */);
 
-        auto [stack_len, stack_ptr, heap_len, heap_ptr] = stack_and_heap_info;
+        auto [stack_len, stack_bottom_ptr, heap_len, heap_ptr] = stack_and_heap_info;
 
         // set my_rank = 0's stack and heap to the new location
         if (my_rank == 0) {
@@ -62,7 +62,8 @@ namespace simple_parallel {
             ucontext_t target_context;
             ucontext_t context_current;
             getcontext(&target_context);
-            target_context.uc_stack.ss_sp = stack_ptr;
+            target_context.uc_stack.ss_sp = reinterpret_cast<void*>(
+                reinterpret_cast<size_t>(stack_bottom_ptr) - stack_len);
             target_context.uc_stack.ss_size = stack_len;
             target_context.uc_link = &context_current;
             makecontext(&target_context,

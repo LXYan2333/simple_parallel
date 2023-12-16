@@ -16,5 +16,4 @@ target_link_system_libraries(
     PUBLIC  MPI::MPI_CXX
             mimalloc
             fmt::fmt
-            Microsoft.GSL::GSL
-            bigmpi)
+            Microsoft.GSL::GSL)

@@ -7,7 +7,7 @@ namespace simple_parallel {
 
     struct stack_and_heap_info {
         size_t stack_len;
-        void* stack_ptr;
+        void*  stack_bottom_ptr;
         size_t heap_len;
         void* heap_ptr;
     };

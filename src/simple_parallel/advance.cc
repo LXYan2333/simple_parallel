@@ -1,9 +1,7 @@
 #include <simple_parallel/advance.h>
 
-#include <bigmpi.h>
 #include <cassert>
 #include <cstddef>
-#include <cstdint>
 #include <dlfcn.h>
 #include <fmt/core.h>
 #include <functional>
@@ -138,7 +136,7 @@ namespace simple_parallel {
                 new_heap_ptr += 1024uz * 1024 * 1024 * 256;
 
                 // if the pointer is too large, abort
-                if (new_stack_ptr + heap_len > 0xFFFF'FFFF'FFFFuz) {
+                if (new_heap_ptr + heap_len > 0xFFFF'FFFF'FFFFuz) {
                     fmt::println(
                         stderr,
                         "Failed to find a free virtual memory space for heap");
@@ -147,8 +145,10 @@ namespace simple_parallel {
             }
 
             struct stack_and_heap_info r {
-                stack_len, reinterpret_cast<void*>(new_stack_ptr), heap_len,
-                    reinterpret_cast<void*>(new_heap_ptr)
+                stack_len,
+                reinterpret_cast<void*>(new_stack_ptr + stack_len),
+                heap_len,
+                reinterpret_cast<void*>(new_heap_ptr)
             };
 
             return r;
@@ -182,11 +182,11 @@ namespace simple_parallel {
                         MPI::COMM_WORLD.Bcast(
                             &stack_len, sizeof(size_t), MPI::BYTE, 0);
 
-                        MPIX_Bcast_x(stack_frame_ptr,
-                                     static_cast<int64_t>(stack_len),
-                                     MPI::BYTE,
-                                     0,
-                                     MPI_COMM_WORLD);
+                        MPI_Bcast_c(stack_frame_ptr,
+                                    static_cast<MPI_Count>(stack_len),
+                                    MPI::BYTE,
+                                    0,
+                                    MPI_COMM_WORLD);
                         break;
                     }
                     case mpi_util::tag_enum::send_heap: {
@@ -202,11 +202,11 @@ namespace simple_parallel {
                             size_t block_size{};
                             MPI::COMM_WORLD.Bcast(
                                 &block_size, sizeof(size_t), MPI::BYTE, 0);
-                            MPIX_Bcast_x(block_ptr,
-                                         static_cast<int64_t>(block_size),
-                                         MPI::BYTE,
-                                         0,
-                                         MPI_COMM_WORLD);
+                            MPI_Bcast_c(block_ptr,
+                                        static_cast<MPI_Count>(block_size),
+                                        MPI::BYTE,
+                                        0,
+                                        MPI_COMM_WORLD);
                             fmt::println(stderr,
                                          "worker {} received block {:X}",
                                          MPI::COMM_WORLD.Get_rank(),
@@ -258,7 +258,7 @@ namespace simple_parallel {
             }
         }
 
-        auto send_stack(void* stack_frame_ptr, void* stack_ptr) -> void {
+        auto send_stack(void* stack_frame_ptr, void* stack_bottom_ptr) -> void {
             // tell all workers to receive stack
             mpi_util::tag_enum tag = mpi_util::tag_enum::send_stack;
             MPI::COMM_WORLD.Bcast(&tag, 1, MPI::INT, 0);
@@ -268,18 +268,16 @@ namespace simple_parallel {
                 &stack_frame_ptr, sizeof(void*), MPI::BYTE, 0);
 
             // send stack length to all workers
-            size_t stack_len = reinterpret_cast<size_t>(stack_ptr)
+            size_t stack_len = reinterpret_cast<size_t>(stack_bottom_ptr)
                                - reinterpret_cast<size_t>(stack_frame_ptr);
 
             MPI::COMM_WORLD.Bcast(&stack_len, sizeof(size_t), MPI::BYTE, 0);
 
-            // send stack using bigmpi as vanilla mpi can not send BYTE >=
-            // 2GB
-            MPIX_Bcast_x(stack_frame_ptr,
-                         static_cast<int64_t>(stack_len),
-                         MPI_BYTE,
-                         0,
-                         MPI_COMM_WORLD);
+            MPI_Bcast_c(stack_frame_ptr,
+                        static_cast<MPI_Count>(stack_len),
+                        MPI_BYTE,
+                        0,
+                        MPI_COMM_WORLD);
         }
 
         namespace {
@@ -294,11 +292,11 @@ namespace simple_parallel {
                 MPI::COMM_WORLD.Bcast(&block, sizeof(void*), MPI::BYTE, 0);
                 MPI::COMM_WORLD.Bcast(
                     &block_size, sizeof(size_t), MPI::BYTE, 0);
-                MPIX_Bcast_x(block,
-                             static_cast<int64_t>(block_size),
-                             MPI::BYTE,
-                             0,
-                             MPI_COMM_WORLD);
+                MPI_Bcast_c(block,
+                            static_cast<MPI_Count>(block_size),
+                            MPI::BYTE,
+                            0,
+                            MPI_COMM_WORLD);
 
                 return true;
             }
@@ -332,7 +330,7 @@ namespace simple_parallel {
             int rsp = 0;
 
             // send my_rank = 0's stack
-            send_stack(&rsp, stack_and_heap_info.stack_ptr);
+            send_stack(&rsp, stack_and_heap_info.stack_bottom_ptr);
             send_heap(heap);
         }
 

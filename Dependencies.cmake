@@ -15,33 +15,12 @@ function(simple_parallel_setup_dependencies)
         find_package(mimalloc CONFIG REQUIRED)
         find_package(fmt CONFIG REQUIRED)
         find_package(Microsoft.GSL CONFIG REQUIRED)
-
-        # https://github.com/jeffhammond/BigMPI
-        # bigmpi's cmake is not standard, so we have to manually add it
-        if(NOT bigmpi_DIR)
-            message(FATAL_ERROR "bigmpi_DIR not set. Please set it to the directory containing the built bigmpi binaries and header files.")
-        endif()
-        add_library(bigmpi INTERFACE)
-        target_include_directories(bigmpi INTERFACE ${bigmpi_DIR}/src)
-        target_link_libraries(bigmpi INTERFACE ${bigmpi_DIR}/lib/libbigmpi.so)
-        target_include_directories(bigmpi INTERFACE ${bigmpi_DIR}/include)
-
     else()
         if(NOT TARGET mimalloc)
             CPMAddPackage(
                 NAME mimalloc
                 GITHUB_REPOSITORY "microsoft/mimalloc"
                 VERSION 2.1.2)
-        endif()
-
-        if(NOT TARGET bigmpi)
-            CPMAddPackage(
-                NAME bigmpi
-                GITHUB_REPOSITORY "jeffhammond/BigMPI"
-                VERSION 0.1)
-        endif()
-        if (bigmpi_ADDED)
-            target_include_directories(bigmpi INTERFACE ${bigmpi_SOURCE_DIR}/src)
         endif()
 
         if(NOT TARGET fmt::fmt)

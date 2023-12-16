@@ -1,6 +1,5 @@
 #pragma once
 
-#include <bigmpi.h>
 #include <cassert>
 #include <cstdint>
 #include <mpi.h>

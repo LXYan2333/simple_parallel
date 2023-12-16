@@ -25,5 +25,4 @@ target_link_system_libraries(
     simple_parallel_for_c 
     PUBLIC  MPI::MPI_C
             mimalloc
-            bigmpi
             simple_parallel)
