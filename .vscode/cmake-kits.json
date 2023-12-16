@@ -13,7 +13,7 @@
         "environmentVariables": {
             "MPI_HOME": "/opt/intel/oneapi/mpi/latest/"
         },
-        "description": "Only used to generate the compile_commands.json"
+        "description": "Clang 17 with intel mpi"
     },
     {
         "name": "GCC with intel mpi",
@@ -29,6 +29,6 @@
         "environmentVariables": {
             "MPI_HOME": "/opt/intel/oneapi/mpi/latest/"
         },
-        "description": "Only used to generate the compile_commands.json"
+        "description": "GCC with intel mpi"
     }
 ]

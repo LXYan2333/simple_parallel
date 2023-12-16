@@ -321,16 +321,26 @@ namespace simple_parallel {
             MPI::COMM_WORLD.Bcast(&null_ptr, sizeof(void*), MPI::BYTE, 0);
         }
 
-        // this function can only be called by my_rank=0 MPI process
-        auto broadcast_stack_and_heap() -> void {
-            // only assert in debug mode
+        /**
+         * @brief Broadcast the virtual stack and heap of the `rank = 0` process
+         * to all other process.
+         *
+         * Warning to code maintaners:
+         * This function can **NOT** be inlined, as we need to get the correct
+         * frame pointer address to send the entire heap.
+         * If this function is inlined, we will get an incorrect frame pointer
+         * of the caller function, and the sent stack will be incomplete.
+         * In my test, the `__attribute__((noinline))` works for clang++ 17.0.6
+         * and g++ 12.2.0
+         *
+         */
+        __attribute__((noinline)) auto broadcast_stack_and_heap() -> void {
             assert(MPI::COMM_WORLD.Get_rank() == 0);
 
-            // used to get the stack pointer
-            int rsp = 0;
+            void* frame_address = __builtin_frame_address(0);
 
             // send my_rank = 0's stack
-            send_stack(&rsp, stack_and_heap_info.stack_bottom_ptr);
+            send_stack(&frame_address, stack_and_heap_info.stack_bottom_ptr);
             send_heap(heap);
         }
 
