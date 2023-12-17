@@ -6,7 +6,7 @@
 #include <fmt/core.h>
 #include <functional>
 #include <gsl/util>
-#include <internal_use_only/config.h>
+#include <internal_use_only/simple_parallel_config.h>
 #include <mimalloc.h>
 #include <mpi.h>
 #include <simple_parallel/mpi_util.h>

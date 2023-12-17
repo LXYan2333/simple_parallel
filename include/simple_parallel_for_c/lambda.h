@@ -1,6 +1,6 @@
 #pragma once
 
-#include <internal_use_only/config.h>
+#include <internal_use_only/simple_parallel_config.h>
 
 #ifdef SIMPLE_PARALLEL_COMPILER_GNU
 // use gcc's nested function extension

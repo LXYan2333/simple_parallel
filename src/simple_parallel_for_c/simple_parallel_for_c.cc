@@ -1,6 +1,6 @@
 #include <simple_parallel_for_c/simple_parallel_for_c.h>
 
-#include <internal_use_only/config.h>
+#include <internal_use_only/simple_parallel_config.h>
 #include <simple_parallel/simple_parallel.h>
 
 extern "C" {

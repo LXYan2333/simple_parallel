@@ -1,10 +1,13 @@
 aux_source_directory(. source)
 add_library(simple_parallel ${source})
+add_library(simple_parallel::simple_parallel ALIAS simple_parallel)
 
 target_include_directories(
     simple_parallel 
     PRIVATE "${CMAKE_BINARY_DIR}/configured_files/include"
-    PUBLIC  "include")
+    PUBLIC  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+            $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include>
+            $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 
 target_link_libraries(
     simple_parallel
@@ -17,3 +20,28 @@ target_link_system_libraries(
             mimalloc
             fmt::fmt
             Microsoft.GSL::GSL)
+
+# export(TARGETS simple_parallel simple_parallel_options simple_parallel_warnings mimalloc fmt GSL NAMESPACE simple_parallel:: FILE simple_parallelTargets.cmake)
+install(TARGETS simple_parallel
+                simple_parallel_options
+                simple_parallel_warnings
+        EXPORT  simple_parallelTargets
+        LIBRARY     DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        ARCHIVE     DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        RUNTIME     DESTINATION ${CMAKE_INSTALL_BINDIR}
+        INCLUDES    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+
+if(NOT simple_parallel_PACKAGING_MAINTAINER_MODE)
+    install(TARGETS mimalloc 
+                    fmt 
+                    GSL
+            EXPORT  simple_parallelTargets
+            LIBRARY     DESTINATION ${CMAKE_INSTALL_LIBDIR}
+            ARCHIVE     DESTINATION ${CMAKE_INSTALL_LIBDIR}
+            RUNTIME     DESTINATION ${CMAKE_INSTALL_BINDIR}
+            INCLUDES    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+endif()
+
+install(DIRECTORY ${PROJECT_SOURCE_DIR}/include/simple_parallel 
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+

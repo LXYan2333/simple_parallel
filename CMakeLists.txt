@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.21.0)
 
+include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
+
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -29,3 +32,21 @@ add_library(simple_parallel::simple_parallel_warnings ALIAS simple_parallel_warn
 add_subdirectory(configured_files)
 
 add_subdirectory(src)
+
+write_basic_package_version_file(
+    simple_parallelVersion.cmake
+    VERSION ${PACKAGE_VERSION}
+    COMPATIBILITY AnyNewerVersion)
+
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/simple_parallelVersion.cmake"
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/simple_parallel)
+
+install(EXPORT simple_parallelTargets
+        FILE simple_parallelTargets.cmake
+        NAMESPACE simple_parallel::
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/simple_parallel)
+
+export(EXPORT simple_parallelTargets
+       FILE "${CMAKE_CURRENT_BINARY_DIR}/cmake/simple_parallelTargets.cmake"
+       NAMESPACE simple_parallel::
+)
