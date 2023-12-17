@@ -13,7 +13,6 @@ function(simple_parallel_setup_dependencies)
 
     if(simple_parallel_PACKAGING_MAINTAINER_MODE)
         find_package(mimalloc CONFIG REQUIRED)
-        find_package(fmt CONFIG REQUIRED)
         find_package(Microsoft.GSL CONFIG REQUIRED)
     else()
         if(NOT TARGET mimalloc)
@@ -21,10 +20,6 @@ function(simple_parallel_setup_dependencies)
                 NAME mimalloc
                 GITHUB_REPOSITORY "microsoft/mimalloc"
                 VERSION 2.1.2)
-        endif()
-
-        if(NOT TARGET fmt::fmt)
-            CPMAddPackage("gh:fmtlib/fmt#10.1.1")
         endif()
 
         if(NOT TARGET Microsoft.GSL::GSL)

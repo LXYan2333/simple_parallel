@@ -1,9 +1,9 @@
+#include <iostream>
 #include <simple_parallel/advance.h>
 
 #include <cassert>
 #include <cstddef>
 #include <dlfcn.h>
-#include <fmt/core.h>
 #include <functional>
 #include <gsl/util>
 #include <internal_use_only/simple_parallel_config.h>
@@ -27,21 +27,6 @@ namespace simple_parallel {
     extern struct stack_and_heap_info stack_and_heap_info;
 
     namespace advance {
-
-        // static
-
-        //     auto
-        //     disable_aslr() {
-        //     // disable ASLR
-        // }
-
-        auto run_main(char* executable) {
-            dlopen(executable, RTLD_LAZY);
-            auto* err = dlerror();
-            if (err != nullptr) {
-                fmt::print(stderr, "Failed to load executable: {}\n", err);
-            }
-        }
 
         auto find_free_virtual_space(size_t stack_len, size_t heap_len)
             -> struct stack_and_heap_info {
@@ -91,9 +76,6 @@ namespace simple_parallel {
                 new_stack_ptr += 1024uz * 1024 * 1024 * 4; // forward 4GB
                 // if the pointer is too large, abort
                 if (new_stack_ptr + stack_len > 0xFFFF'FFFF'FFFFuz) {
-                    fmt::println(
-                        stderr,
-                        "Failed to find a free virtual memory space for stack");
                     MPI::COMM_WORLD.Abort(111);
                 }
             }
@@ -137,9 +119,6 @@ namespace simple_parallel {
 
                 // if the pointer is too large, abort
                 if (new_heap_ptr + heap_len > 0xFFFF'FFFF'FFFFuz) {
-                    fmt::println(
-                        stderr,
-                        "Failed to find a free virtual memory space for heap");
                     MPI::COMM_WORLD.Abort(111);
                 }
             }
@@ -207,10 +186,6 @@ namespace simple_parallel {
                                         MPI::BYTE,
                                         0,
                                         MPI_COMM_WORLD);
-                            fmt::println(stderr,
-                                         "worker {} received block {:X}",
-                                         MPI::COMM_WORLD.Get_rank(),
-                                         *reinterpret_cast<size_t*>(block_ptr));
                         }
                         break;
                     }
@@ -221,11 +196,6 @@ namespace simple_parallel {
                                               sizeof(function*),
                                               MPI::BYTE,
                                               0);
-                        fmt::println(
-                            stderr,
-                            "worker {} received lambda {:X}",
-                            MPI::COMM_WORLD.Get_rank(),
-                            reinterpret_cast<size_t>(pointer_to_std_function));
                         (*pointer_to_std_function)();
 
                         break;
@@ -243,11 +213,10 @@ namespace simple_parallel {
                         MPI::COMM_WORLD.Bcast(
                             &len_in_byte, sizeof(size_t), MPI::BYTE, 0);
                         for (size_t i = 0; i < len_in_byte; i++) {
-                            fmt::print(stderr,
-                                       "{:X}",
-                                       reinterpret_cast<u_int8_t*>(ptr)[i]);
+                            std::cout << std::hex
+                                      << reinterpret_cast<u_int8_t*>(ptr)[i];
                         }
-                        fmt::print(stderr, "\n");
+                        std::cout << "\n";
                         break;
                     }
                     default: {

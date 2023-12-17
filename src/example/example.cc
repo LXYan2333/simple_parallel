@@ -1,5 +1,4 @@
-#include <fmt/core.h>
-#include <fmt/ranges.h>
+#include <iostream>
 #include <mpi.h>
 #include <simple_parallel/main.h>
 #include <simple_parallel/simple_parallel.h>
@@ -44,6 +43,6 @@ auto main() -> int {
             &a, &mpi_reduce_result, 1, MPI::INT, MPI::SUM, 0);
     }
     SIMPLE_PARALLEL_END
-    fmt::print("Sum is {}\n", mpi_reduce_result);
+    std::cout << "Sum is " << mpi_reduce_result << "\n";
     return 0;
 }

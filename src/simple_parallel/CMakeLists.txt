@@ -18,10 +18,8 @@ target_link_system_libraries(
     simple_parallel 
     PUBLIC  MPI::MPI_CXX
             mimalloc
-            fmt::fmt
             Microsoft.GSL::GSL)
 
-# export(TARGETS simple_parallel simple_parallel_options simple_parallel_warnings mimalloc fmt GSL NAMESPACE simple_parallel:: FILE simple_parallelTargets.cmake)
 install(TARGETS simple_parallel
                 simple_parallel_options
                 simple_parallel_warnings
@@ -32,8 +30,7 @@ install(TARGETS simple_parallel
         INCLUDES    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 if(NOT simple_parallel_PACKAGING_MAINTAINER_MODE)
-    install(TARGETS mimalloc 
-                    fmt 
+    install(TARGETS mimalloc
                     GSL
             EXPORT  simple_parallelTargets
             LIBRARY     DESTINATION ${CMAKE_INSTALL_LIBDIR}

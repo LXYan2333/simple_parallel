@@ -1,6 +1,5 @@
 #include <cstddef>
 #include <cstdio>
-#include <fmt/core.h>
 #include <iostream>
 #include <mimalloc.h>
 #include <mpi.h>
@@ -41,9 +40,6 @@ namespace simple_parallel {
 
         // set my_rank = 0's stack and heap to the new location
         if (my_rank == 0) {
-            fmt::println(
-                stderr, "master pid is: {}, type return to continue", getpid());
-            std::cin.get();
             mi_arena_id_t mi_id{};
             mi_manage_os_memory_ex(
                 heap_ptr,
@@ -78,9 +74,6 @@ namespace simple_parallel {
             MPI::COMM_WORLD.Bcast(&finalize_tag, 1, MPI::INT, 0);
 
         } else {
-            fmt::println(
-                stderr, "worker pid is: {}, type return to continue", getpid());
-            // std::cin.get();
             advance::worker();
         }
         MPI::Finalize();

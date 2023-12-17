@@ -2,7 +2,6 @@
 
 #include <cassert>
 #include <cstddef>
-#include <fmt/core.h>
 #include <functional>
 #include <gsl/util>
 #include <mpi.h>
@@ -30,10 +29,7 @@ namespace simple_parallel {
 
         using function                    = std::function<void()>;
         function* pointer_to_std_function = &f;
-        fmt::println(stderr,
-                     "master {} send lambda {:X}",
-                     MPI::COMM_WORLD.Get_rank(),
-                     reinterpret_cast<size_t>(pointer_to_std_function));
+
         // tell worker processes to run the lambda
         mpi_util::broadcast_tag(mpi_util::tag_enum::run_lambda);
 
