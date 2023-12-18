@@ -33,12 +33,19 @@ add_subdirectory(configured_files)
 
 add_subdirectory(src)
 
+if(CMAKE_SKIP_INSTALL_RULES)
+    return()
+endif()
+
+configure_file(cmake/simple_parallelConfig.cmake.in simple_parallelConfig.cmake @ONLY)
+
 write_basic_package_version_file(
-    simple_parallelVersion.cmake
+    simple_parallelConfigVersion.cmake
     VERSION ${PACKAGE_VERSION}
     COMPATIBILITY AnyNewerVersion)
 
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/simple_parallelVersion.cmake"
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/simple_parallelConfigVersion.cmake"
+              "${CMAKE_CURRENT_BINARY_DIR}/simple_parallelConfig.cmake"
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/simple_parallel)
 
 install(EXPORT simple_parallelTargets

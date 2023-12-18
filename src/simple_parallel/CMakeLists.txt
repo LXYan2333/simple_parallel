@@ -29,16 +29,6 @@ install(TARGETS simple_parallel
         RUNTIME     DESTINATION ${CMAKE_INSTALL_BINDIR}
         INCLUDES    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
-if(NOT simple_parallel_PACKAGING_MAINTAINER_MODE)
-    install(TARGETS mimalloc
-                    GSL
-            EXPORT  simple_parallelTargets
-            LIBRARY     DESTINATION ${CMAKE_INSTALL_LIBDIR}
-            ARCHIVE     DESTINATION ${CMAKE_INSTALL_LIBDIR}
-            RUNTIME     DESTINATION ${CMAKE_INSTALL_BINDIR}
-            INCLUDES    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
-endif()
-
 install(DIRECTORY ${PROJECT_SOURCE_DIR}/include/simple_parallel 
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 

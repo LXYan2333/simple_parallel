@@ -11,19 +11,37 @@ function(simple_parallel_setup_dependencies)
     # For each dependency, see if it's
     # already been provided to us by a parent project
 
-    if(simple_parallel_PACKAGING_MAINTAINER_MODE)
+    if(simple_parallel_FORCE_FIND_PACKAGE)
         find_package(mimalloc CONFIG REQUIRED)
         find_package(Microsoft.GSL CONFIG REQUIRED)
     else()
-        if(NOT TARGET mimalloc)
+        find_package(mimalloc CONFIG)
+        if(NOT mimalloc_FOUND)
             CPMAddPackage(
                 NAME mimalloc
                 GITHUB_REPOSITORY "microsoft/mimalloc"
                 VERSION 2.1.2)
+            install(TARGETS mimalloc
+                    EXPORT  simple_parallelTargets
+                    LIBRARY     DESTINATION ${CMAKE_INSTALL_LIBDIR}
+                    ARCHIVE     DESTINATION ${CMAKE_INSTALL_LIBDIR}
+                    RUNTIME     DESTINATION ${CMAKE_INSTALL_BINDIR}
+                    INCLUDES    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
         endif()
 
-        if(NOT TARGET Microsoft.GSL::GSL)
-            CPMAddPackage("gh:Microsoft/GSL#v4.0.0")
+        find_package(Microsoft.GSL CONFIG)
+        if(NOT Microsoft.GSL_FOUND)
+            CPMAddPackage(
+                NAME GSL
+                GITHUB_REPOSITORY "Microsoft/GSL"
+                VERSION 4.0.0
+                OPTIONS "GSL_INSTALL ON")
+            install(TARGETS GSL
+                    EXPORT  simple_parallelTargets
+                    LIBRARY     DESTINATION ${CMAKE_INSTALL_LIBDIR}
+                    ARCHIVE     DESTINATION ${CMAKE_INSTALL_LIBDIR}
+                    RUNTIME     DESTINATION ${CMAKE_INSTALL_BINDIR}
+                    INCLUDES    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
         endif()
     endif()
 endfunction()
