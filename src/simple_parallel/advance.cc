@@ -139,9 +139,6 @@ namespace simple_parallel {
 
             assert(MPI::COMM_WORLD.Get_rank() != 0);
 
-            void* myself = dlopen(nullptr, RTLD_LAZY);
-            gsl::final_action dlclose_guard{[&myself]() { dlclose(myself); }};
-
             while (true) {
                 mpi_util::tag_enum tag{};
                 MPI::COMM_WORLD.Bcast(&tag, 1, MPI::INT, 0);
