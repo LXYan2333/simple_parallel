@@ -8,7 +8,8 @@
         },
         "cmakeSettings": {
             "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-            "simple_parallel_ENABLE_USER_LINKER": "ON"
+            "simple_parallel_ENABLE_USER_LINKER": "ON",
+            "simple_parallel_WARNINGS_AS_ERRORS": "ON"
         },
         "environmentVariables": {
             "MPI_HOME": "/opt/intel/oneapi/mpi/latest/"
@@ -24,7 +25,8 @@
         },
         "cmakeSettings": {
             "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-            "simple_parallel_ENABLE_USER_LINKER": "OFF"
+            "simple_parallel_ENABLE_USER_LINKER": "OFF",
+            "simple_parallel_WARNINGS_AS_ERRORS": "ON"
         },
         "environmentVariables": {
             "MPI_HOME": "/opt/intel/oneapi/mpi/latest/"
@@ -40,7 +42,8 @@
         },
         "cmakeSettings": {
             "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-            "simple_parallel_ENABLE_USER_LINKER": "OFF"
+            "simple_parallel_ENABLE_USER_LINKER": "OFF",
+            "simple_parallel_WARNINGS_AS_ERRORS": "ON"
         },
         "environmentVariables": {
             "MPI_HOME": "/export/home/lxyan/oneapi/mpi/latest/"
