@@ -1,5 +1,6 @@
 #pragma once
 
+#include <mpi.h>
 #include <simple_parallel_for_c/lambda.h>
 #include <stdbool.h>
 
