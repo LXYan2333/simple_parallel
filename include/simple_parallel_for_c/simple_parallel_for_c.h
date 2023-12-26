@@ -82,6 +82,7 @@ extern "C" {
             if (!simple_parallel_run) {                                        \
                 s_p_start_index += simple_parallel_grain_size;                 \
             }                                                                  \
+            _Pragma("omp barrier")                                             \
         }                                                                      \
         if (simple_parallel_run) {                                             \
             _Pragma("omp masked")                                              \

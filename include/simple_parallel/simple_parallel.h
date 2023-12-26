@@ -98,6 +98,7 @@ namespace simple_parallel {
             if (!simple_parallel_run) {                                        \
                 s_p_start_index += simple_parallel_grain_size;                 \
             }                                                                  \
+            _Pragma("omp barrier")                                             \
         }                                                                      \
         _Pragma("omp masked")                                                  \
         if (simple_parallel_run) {                                             \
