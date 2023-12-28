@@ -5,7 +5,8 @@ include(cmake/CPM.cmake)
 # targets
 function(simple_parallel_setup_dependencies)
 
-    find_package(MPI REQUIRED)
+    set(MPI_CXX_SKIP_MPICXX ON)
+    find_package(MPI REQUIRED COMPONENTS C)
     message(STATUS "Run: ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} ${MPIEXEC_MAX_NUMPROCS} ${MPIEXEC_PREFLAGS} EXECUTABLE ${MPIEXEC_POSTFLAGS} ARGS")
 
     CPMAddPackage("gh:TheLartians/PackageProject.cmake@1.11.1")
@@ -16,7 +17,7 @@ function(simple_parallel_setup_dependencies)
     # set(BOOST_HEADER_ONLY_COMPONENTS_THAT_YOU_NEED "")
 
     set(IS_BOOST_LOCAL OFF)
-    if(simple_parallel_FORCE_FIND_PACKAGE)
+    if(${CPM_LOCAL_PACKAGES_ONLY})
         message(STATUS "Trying to find Boost...")
         find_package(Boost ${TRY_BOOST_VERSION} REQUIRED COMPONENTS
             ${BOOST_NOT_HEADER_ONLY_COMPONENTS_THAT_YOU_NEED})
@@ -40,19 +41,15 @@ function(simple_parallel_setup_dependencies)
         set(IS_BOOST_LOCAL OFF)
     endif()
 
-    if(simple_parallel_FORCE_FIND_PACKAGE)
-        find_package(mimalloc CONFIG REQUIRED)
-        find_package(Microsoft.GSL CONFIG REQUIRED)
-    else()
-        CPMAddPackage(
-            NAME mimalloc
-            GITHUB_REPOSITORY "microsoft/mimalloc"
-            VERSION 2.1.2)
-        CPMAddPackage(
-            NAME GSL
-            GITHUB_REPOSITORY "Microsoft/GSL"
-            VERSION 4.0.0
-            OPTIONS "GSL_INSTALL ON")
-    endif()
+
+    CPMAddPackage(
+        NAME mimalloc
+        GITHUB_REPOSITORY "microsoft/mimalloc"
+        VERSION 2.1.2)
+    CPMAddPackage(
+        NAME GSL
+        GITHUB_REPOSITORY "Microsoft/GSL"
+        VERSION 4.0.0
+        OPTIONS "GSL_INSTALL ON")
 
 endfunction()

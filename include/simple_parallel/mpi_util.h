@@ -1,5 +1,6 @@
 #pragma once
 
+#include <boost/mpi.hpp>
 #include <cassert>
 #include <cstdint>
 #include <mpi.h>
@@ -16,8 +17,11 @@ namespace simple_parallel::mpi_util {
     };
 
     inline auto broadcast_tag(tag_enum tag) {
-        assert(MPI::COMM_WORLD.Get_rank() == 0);
-        MPI::COMM_WORLD.Bcast(&tag, 1, MPI::INT, 0);
+        assert(boost::mpi::communicator{}.rank() == 0);
+        // static_assert(
+        //     std::is_convertible_v<boost::mpi::is_mpi_datatype<tag_enum>,
+        //                           boost::mpl::true_>);
+        MPI_Bcast(&tag, 1, MPI_INT, 0, MPI_COMM_WORLD);
     }
 
     // // https://www.mcs.anl.gov/research/projects/mpi/sendmode.html

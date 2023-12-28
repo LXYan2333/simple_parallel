@@ -1,4 +1,3 @@
-#include <iostream>
 #include <simple_parallel/advance.h>
 
 #include <cassert>
@@ -13,12 +12,8 @@
 #include <sys/mman.h>
 #include <sys/types.h>
 
-#include <sys/personality.h>
+#include <type_traits>
 
-#ifndef HAVE_PERSONALITY
-    #include <syscall.h>
-    #define personality(pers) ((long)syscall(SYS_personality, pers))
-#endif
 
 namespace simple_parallel {
 
@@ -56,8 +51,20 @@ namespace simple_parallel {
                 bool my_result = mmap_result != MAP_FAILED;
                 bool reduced_result = false;
 
-                MPI::COMM_WORLD.Allreduce(
-                    &my_result, &reduced_result, 1, MPI::BOOL, MPI::LAND);
+                static_assert(
+                    std::is_convertible_v<boost::mpi::is_mpi_datatype<bool>,
+                                          boost::mpl::true_>);
+                // static_assert(
+                //     std::is_convertible_v<
+                //         boost::mpi::is_mpi_op<std::logical_and<bool>, bool>,
+                //         boost::mpl::true_>);
+                MPI_Allreduce(&my_result,
+                              &reduced_result,
+                              1,
+                              MPI_C_BOOL,
+                              MPI_LAND,
+                              MPI_COMM_WORLD);
+
                 if (reduced_result) {
                     // all MPI processes successfully find a free virtual
                     // memory, exit loop
@@ -76,7 +83,7 @@ namespace simple_parallel {
                 new_stack_ptr += 1024uz * 1024 * 1024 * 4; // forward 4GB
                 // if the pointer is too large, abort
                 if (new_stack_ptr + stack_len > 0xFFFF'FFFF'FFFFuz) {
-                    MPI::COMM_WORLD.Abort(111);
+                    boost::mpi::communicator{}.abort(111);
                 }
             }
 
@@ -97,8 +104,12 @@ namespace simple_parallel {
                 bool my_result = mmap_result != MAP_FAILED;
                 bool reduced_result = false;
 
-                MPI::COMM_WORLD.Allreduce(
-                    &my_result, &reduced_result, 1, MPI::BOOL, MPI::LAND);
+                MPI_Allreduce(&my_result,
+                              &reduced_result,
+                              1,
+                              MPI_C_BOOL,
+                              MPI_LAND,
+                              MPI_COMM_WORLD);
 
                 if (reduced_result) {
                     // all MPI processes successfully find a free virtual
@@ -119,7 +130,7 @@ namespace simple_parallel {
 
                 // if the pointer is too large, abort
                 if (new_heap_ptr + heap_len > 0xFFFF'FFFF'FFFFuz) {
-                    MPI::COMM_WORLD.Abort(111);
+                    boost::mpi::communicator{}.abort(111);
                 }
             }
 
@@ -137,11 +148,11 @@ namespace simple_parallel {
         auto
         worker() -> void {
 
-            assert(MPI::COMM_WORLD.Get_rank() != 0);
+            assert(boost::mpi::communicator{}.rank() != 0);
 
             while (true) {
                 mpi_util::tag_enum tag{};
-                MPI::COMM_WORLD.Bcast(&tag, 1, MPI::INT, 0);
+                MPI_Bcast(&tag, 1, MPI_INT, 0, MPI_COMM_WORLD);
                 switch (tag) {
                     case mpi_util::tag_enum::init: {
                         continue;
@@ -151,16 +162,23 @@ namespace simple_parallel {
                     }
                     case mpi_util::tag_enum::send_stack: {
                         void* stack_frame_ptr{};
-                        MPI::COMM_WORLD.Bcast(
-                            &stack_frame_ptr, sizeof(size_t), MPI::BYTE, 0);
+
+                        MPI_Bcast(&stack_frame_ptr,
+                                  sizeof(void*),
+                                  MPI_BYTE,
+                                  0,
+                                  MPI_COMM_WORLD);
 
                         size_t stack_len{};
-                        MPI::COMM_WORLD.Bcast(
-                            &stack_len, sizeof(size_t), MPI::BYTE, 0);
+                        MPI_Bcast(&stack_len,
+                                  sizeof(void*),
+                                  MPI_BYTE,
+                                  0,
+                                  MPI_COMM_WORLD);
 
                         MPI_Bcast_c(stack_frame_ptr,
                                     static_cast<MPI_Count>(stack_len),
-                                    MPI::BYTE,
+                                    MPI_BYTE,
                                     0,
                                     MPI_COMM_WORLD);
                         break;
@@ -168,19 +186,25 @@ namespace simple_parallel {
                     case mpi_util::tag_enum::send_heap: {
                         while (true) {
                             void* block_ptr{};
-                            MPI::COMM_WORLD.Bcast(
-                                &block_ptr, sizeof(void*), MPI::BYTE, 0);
+                            MPI_Bcast(&block_ptr,
+                                      sizeof(void*),
+                                      MPI_BYTE,
+                                      0,
+                                      MPI_COMM_WORLD);
 
                             if (block_ptr == nullptr) {
                                 break;
                             }
 
                             size_t block_size{};
-                            MPI::COMM_WORLD.Bcast(
-                                &block_size, sizeof(size_t), MPI::BYTE, 0);
+                            MPI_Bcast(&block_size,
+                                      sizeof(size_t),
+                                      MPI_BYTE,
+                                      0,
+                                      MPI_COMM_WORLD);
                             MPI_Bcast_c(block_ptr,
                                         static_cast<MPI_Count>(block_size),
-                                        MPI::BYTE,
+                                        MPI_BYTE,
                                         0,
                                         MPI_COMM_WORLD);
                         }
@@ -189,10 +213,11 @@ namespace simple_parallel {
                     case mpi_util::tag_enum::run_lambda: {
                         using function = std::function<void()>;
                         function* pointer_to_std_function{};
-                        MPI::COMM_WORLD.Bcast(&pointer_to_std_function,
-                                              sizeof(function*),
-                                              MPI::BYTE,
-                                              0);
+                        MPI_Bcast(&pointer_to_std_function,
+                                  sizeof(function*),
+                                  MPI_BYTE,
+                                  0,
+                                  MPI_COMM_WORLD);
                         (*pointer_to_std_function)();
 
                         break;
@@ -205,10 +230,13 @@ namespace simple_parallel {
                     case mpi_util::tag_enum::print_memory: {
                         void* ptr{};
                         size_t len_in_byte{};
-                        MPI::COMM_WORLD.Bcast(
-                            &ptr, sizeof(void*), MPI::BYTE, 0);
-                        MPI::COMM_WORLD.Bcast(
-                            &len_in_byte, sizeof(size_t), MPI::BYTE, 0);
+                        MPI_Bcast(
+                            &ptr, sizeof(void*), MPI_BYTE, 0, MPI_COMM_WORLD);
+                        MPI_Bcast(&len_in_byte,
+                                  sizeof(size_t),
+                                  MPI_BYTE,
+                                  0,
+                                  MPI_COMM_WORLD);
                         for (size_t i = 0; i < len_in_byte; i++) {
                             std::cout << std::hex
                                       << reinterpret_cast<u_int8_t*>(ptr)[i];
@@ -226,18 +254,17 @@ namespace simple_parallel {
 
         auto send_stack(void* stack_frame_ptr, void* stack_bottom_ptr) -> void {
             // tell all workers to receive stack
-            mpi_util::tag_enum tag = mpi_util::tag_enum::send_stack;
-            MPI::COMM_WORLD.Bcast(&tag, 1, MPI::INT, 0);
+            mpi_util::broadcast_tag(mpi_util::tag_enum::send_stack);
 
             // send stack pointer to all workers
-            MPI::COMM_WORLD.Bcast(
-                &stack_frame_ptr, sizeof(void*), MPI::BYTE, 0);
+            MPI_Bcast(
+                &stack_frame_ptr, sizeof(void*), MPI_BYTE, 0, MPI_COMM_WORLD);
 
             // send stack length to all workers
             size_t stack_len = reinterpret_cast<size_t>(stack_bottom_ptr)
                                - reinterpret_cast<size_t>(stack_frame_ptr);
 
-            MPI::COMM_WORLD.Bcast(&stack_len, sizeof(size_t), MPI::BYTE, 0);
+            MPI_Bcast(&stack_len, sizeof(size_t), MPI_BYTE, 0, MPI_COMM_WORLD);
 
             MPI_Bcast_c(stack_frame_ptr,
                         static_cast<MPI_Count>(stack_len),
@@ -255,12 +282,12 @@ namespace simple_parallel {
                 if (block == nullptr) {
                     return true;
                 }
-                MPI::COMM_WORLD.Bcast(&block, sizeof(void*), MPI::BYTE, 0);
-                MPI::COMM_WORLD.Bcast(
-                    &block_size, sizeof(size_t), MPI::BYTE, 0);
+                MPI_Bcast(&block, sizeof(void*), MPI_BYTE, 0, MPI_COMM_WORLD);
+                MPI_Bcast(
+                    &block_size, sizeof(size_t), MPI_BYTE, 0, MPI_COMM_WORLD);
                 MPI_Bcast_c(block,
                             static_cast<MPI_Count>(block_size),
-                            MPI::BYTE,
+                            MPI_BYTE,
                             0,
                             MPI_COMM_WORLD);
 
@@ -270,8 +297,7 @@ namespace simple_parallel {
 
         auto send_heap(mi_heap_t* target_heap) -> void {
             // tell all workers to receive heap
-            mpi_util::tag_enum tag = mpi_util::tag_enum::send_heap;
-            MPI::COMM_WORLD.Bcast(&tag, 1, MPI::INT, 0);
+            mpi_util::broadcast_tag(mpi_util::tag_enum::send_heap);
             mi_heap_t* backing_heap = mi_heap_get_backing();
             // probably MPI will malloc some memory, so temporarily switch to
             // default heap
@@ -284,7 +310,7 @@ namespace simple_parallel {
             }
             // tell all workers to stop receiving heap
             void* null_ptr = nullptr;
-            MPI::COMM_WORLD.Bcast(&null_ptr, sizeof(void*), MPI::BYTE, 0);
+            MPI_Bcast(&null_ptr, sizeof(void*), MPI_BYTE, 0, MPI_COMM_WORLD);
         }
 
         /**
@@ -301,7 +327,7 @@ namespace simple_parallel {
          *
          */
         __attribute__((noinline)) auto broadcast_stack_and_heap() -> void {
-            assert(MPI::COMM_WORLD.Get_rank() == 0);
+            assert(boost::mpi::communicator{}.rank() == 0);
 
             void* frame_address = __builtin_frame_address(0);
 
@@ -311,10 +337,11 @@ namespace simple_parallel {
         }
 
         auto print_memory_on_worker(void* ptr, size_t len_in_byte) -> void {
-            assert(MPI::COMM_WORLD.Get_rank() == 0);
+            assert(boost::mpi::communicator{}.rank() == 0);
             mpi_util::broadcast_tag(mpi_util::tag_enum::print_memory);
-            MPI::COMM_WORLD.Bcast(&ptr, sizeof(void*), MPI::BYTE, 0);
-            MPI::COMM_WORLD.Bcast(&len_in_byte, sizeof(size_t), MPI::BYTE, 0);
+            MPI_Bcast(&ptr, sizeof(void*), MPI_BYTE, 0, MPI_COMM_WORLD);
+            MPI_Bcast(
+                &len_in_byte, sizeof(size_t), MPI_BYTE, 0, MPI_COMM_WORLD);
         }
     } // namespace advance
 } // namespace simple_parallel

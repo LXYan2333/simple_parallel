@@ -6,7 +6,7 @@ auto virtual_main(int argc, char** argv) -> int;
 
 auto main(int argc, char** argv) -> int {
 
-    simple_parallel::init(virtual_main, argc, argv, true);
+    simple_parallel::init(virtual_main, argc, argv);
 
     return 0;
 }

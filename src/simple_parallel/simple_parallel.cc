@@ -1,11 +1,16 @@
+#include <boost/mpi.hpp>
+#include <boost/mpi/environment.hpp>
 #include <cstddef>
 #include <cstdio>
-#include <iostream>
 #include <mimalloc.h>
 #include <mpi.h>
 #include <simple_parallel/advance.h>
 #include <simple_parallel/mpi_util.h>
 #include <ucontext.h>
+
+#include <simple_parallel/simple_parallel.h>
+
+namespace bmpi = boost::mpi;
 
 namespace simple_parallel {
 
@@ -14,20 +19,17 @@ namespace simple_parallel {
 
     stack_and_heap_info stack_and_heap_info;
 
-    auto
-    init(int (*virtual_main)(int, char**), int argc, char** argv, bool init_mpi)
-        -> void {
+    auto init(int (*virtual_main)(int, char**), int argc, char** argv) -> void {
 
-        if (init_mpi) {
-            MPI::Init(argc, argv);
-        }
-        int my_rank = MPI::COMM_WORLD.Get_rank();
-        int num_procs = MPI::COMM_WORLD.Get_size();
+        bmpi::environment env{
+            argc, argv, bmpi::threading::level::multiple, true};
+
+        int my_rank   = bmpi::communicator{}.rank();
+        int num_procs = bmpi::communicator{}.size();
 
         if (num_procs == 1) {
             // only one process, no need to do anything
             virtual_main(argc, argv);
-            MPI::Finalize();
             return;
         }
 
@@ -70,13 +72,11 @@ namespace simple_parallel {
             mpi_util::broadcast_tag(mpi_util::tag_enum::init);
             swapcontext(&context_current, &target_context);
 
-            mpi_util::tag_enum finalize_tag = mpi_util::tag_enum::finalize;
-            MPI::COMM_WORLD.Bcast(&finalize_tag, 1, MPI::INT, 0);
+            mpi_util::broadcast_tag(mpi_util::tag_enum::finalize);
 
         } else {
             advance::worker();
         }
-        MPI::Finalize();
     }
 
 } // namespace simple_parallel

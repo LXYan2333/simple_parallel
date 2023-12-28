@@ -5,10 +5,9 @@
 
 extern "C" {
     auto simple_parallel_init(int (*virtual_main)(int, char**),
-                              int argc,
-                              char** argv,
-                              bool init_mpi) -> void {
-        simple_parallel::init(virtual_main, argc, argv, init_mpi);
+                              int    argc,
+                              char** argv) -> void {
+        simple_parallel::init(virtual_main, argc, argv);
     }
 
     auto simple_parallel_run_lambda(void* lambda, bool parallel_run) -> void {

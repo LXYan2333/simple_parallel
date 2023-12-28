@@ -11,7 +11,7 @@ extern "C" {
 
     int main(int argc, char** argv) {
 
-        simple_parallel_init(virtual_main, argc, argv, true);
+        simple_parallel_init(virtual_main, argc, argv);
 
         return 0;
     }
