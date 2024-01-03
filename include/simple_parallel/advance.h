@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <mimalloc.h>
+#include <simple_parallel/worker.h>
 
 namespace simple_parallel {
 
@@ -17,8 +18,6 @@ namespace simple_parallel {
         auto broadcast_stack_and_heap() -> void;
 
         auto print_memory_on_worker(void* ptr, size_t len_in_byte) -> void;
-
-        auto worker() -> void;
 
         auto send_stack(void* stack_frame_ptr, void* stack_ptr) -> void;
 
