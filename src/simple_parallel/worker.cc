@@ -98,7 +98,7 @@ namespace simple_parallel::advance {
                     break;
                 }
                 default: {
-                    throw std::runtime_error("Invalic tag received in worker!");
+                    throw std::runtime_error("Invalid tag received in worker!");
                 }
             }
         }
