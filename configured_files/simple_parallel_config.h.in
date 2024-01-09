@@ -1,3 +1,6 @@
 #pragma once
-
+// clang-format off
 #define SIMPLE_PARALLEL_COMPILER_@CMAKE_C_COMPILER_ID@
+
+#cmakedefine simple_parallel_MPI_BIG_COUNT
+// clang-format on
