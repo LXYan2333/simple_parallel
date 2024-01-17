@@ -13,7 +13,6 @@
 
 #include <type_traits>
 
-
 namespace simple_parallel {
 
     extern mi_heap_t* heap;
@@ -47,7 +46,7 @@ namespace simple_parallel {
                          -1,
                          0);
 
-                bool my_result = mmap_result != MAP_FAILED;
+                bool my_result      = mmap_result != MAP_FAILED;
                 bool reduced_result = false;
 
                 static_assert(
@@ -100,7 +99,7 @@ namespace simple_parallel {
                          -1,
                          0);
 
-                bool my_result = mmap_result != MAP_FAILED;
+                bool my_result      = mmap_result != MAP_FAILED;
                 bool reduced_result = false;
 
                 MPI_Allreduce(&my_result,
@@ -135,9 +134,9 @@ namespace simple_parallel {
 
             struct stack_and_heap_info r {
                 stack_len,
-                reinterpret_cast<void*>(new_stack_ptr + stack_len),
-                heap_len,
-                reinterpret_cast<void*>(new_heap_ptr)
+                    reinterpret_cast<void*>(new_stack_ptr + stack_len), heap_len
+                    ,
+                    reinterpret_cast<void*>(new_heap_ptr)
             };
 
             return r;
@@ -147,6 +146,7 @@ namespace simple_parallel {
 
         auto
         send_stack(void* stack_frame_ptr, void* stack_bottom_ptr) -> void {
+
             // tell all workers to receive stack
             mpi_util::broadcast_tag(mpi_util::tag_enum::send_stack);
 
@@ -159,18 +159,25 @@ namespace simple_parallel {
                                - reinterpret_cast<size_t>(stack_frame_ptr);
 
             MPI_Bcast(&stack_len, sizeof(size_t), MPI_BYTE, 0, MPI_COMM_WORLD);
-
+#ifdef simple_parallel_MPI_BIG_COUNT
             MPI_Bcast_c(stack_frame_ptr,
                         static_cast<MPI_Count>(stack_len),
                         MPI_BYTE,
                         0,
                         MPI_COMM_WORLD);
+#else
+            MPI_Bcast(stack_frame_ptr,
+                      static_cast<int>(stack_len),
+                      MPI_BYTE,
+                      0,
+                      MPI_COMM_WORLD);
+#endif
         }
 
         namespace {
             auto simple_parallel_send_block(const mi_heap_t* /*unused*/,
                                             const mi_heap_area_t* /*unused*/,
-                                            void* block,
+                                            void*  block,
                                             size_t block_size,
                                             void* /*unused*/) -> bool {
                 if (block == nullptr) {
@@ -179,12 +186,19 @@ namespace simple_parallel {
                 MPI_Bcast(&block, sizeof(void*), MPI_BYTE, 0, MPI_COMM_WORLD);
                 MPI_Bcast(
                     &block_size, sizeof(size_t), MPI_BYTE, 0, MPI_COMM_WORLD);
+#ifdef simple_parallel_MPI_BIG_COUNT
                 MPI_Bcast_c(block,
                             static_cast<MPI_Count>(block_size),
                             MPI_BYTE,
                             0,
                             MPI_COMM_WORLD);
-
+#else
+                MPI_Bcast(block,
+                          static_cast<int>(block_size),
+                          MPI_BYTE,
+                          0,
+                          MPI_COMM_WORLD);
+#endif
                 return true;
             }
         } // namespace

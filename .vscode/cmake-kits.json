@@ -31,6 +31,20 @@
         "description": "Clang 17 with default mpi"
     },
     {
+        "name": "gcc with dafault mpi",
+        "compilers": {
+            "C": "gcc",
+            "CXX": "g++"
+        },
+        "cmakeSettings": {
+            "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+            "simple_parallel_ENABLE_USER_LINKER": "OFF",
+            "simple_parallel_WARNINGS_AS_ERRORS": "ON",
+            "simple_parallel_MPI_BIG_COUNT": "OFF"
+        },
+        "description": "gcc with default mpi"
+    },
+    {
         "name": "GCC with intel mpi",
         "environmentSetupScript": "/opt/intel/oneapi/setvars.sh",
         "compilers": {

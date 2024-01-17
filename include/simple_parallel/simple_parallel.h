@@ -1,17 +1,22 @@
 #pragma once
 
+#include <boost/mpi.hpp>
 #include <cassert>
 #include <functional>
-#include <gsl/util>
 #include <mpi.h>
 #include <simple_parallel/advance.h>
+#include <simple_parallel/dynamic_schedule.h>
 #include <simple_parallel/mpi_util.h>
 
 namespace simple_parallel {
 
-    auto init(int (*virtual_main)(int, char**), int argc, char** argv) -> void;
+    auto init(int (*virtual_main)(int, char**),
+              int                    argc,
+              char**                 argv,
+              bmpi::threading::level mpi_threading_level) -> void;
 
     template <typename T>
+        requires std::is_invocable_v<T>
     auto run_lambda(T lambda, bool parallel_run = true) -> void {
         assert(boost::mpi::communicator{}.rank() == 0);
 
@@ -39,6 +44,15 @@ namespace simple_parallel {
 
         f();
     }
+
+    template <typename T>
+        requires std::is_invocable_v<T>
+    auto parallel_run(bool parallel, T payload) -> void {
+        bool run_in_parallel = bmpi::communicator{}.size() != 1 && parallel;
+        run_lambda(payload, run_in_parallel);
+    }
+
+
 } // namespace simple_parallel
 
 // clang-format off

@@ -26,6 +26,8 @@ endif()
 target_link_system_libraries(
     simple_parallel 
     PUBLIC  $<BUILD_INTERFACE:MPI::MPI_C>
+            $<BUILD_INTERFACE:OpenMP::OpenMP_CXX>
             $<BUILD_INTERFACE:mimalloc>
             $<BUILD_INTERFACE:Microsoft.GSL::GSL>
-            $<BUILD_INTERFACE:Boost::mpi>)
+            $<BUILD_INTERFACE:Boost::mpi>
+            $<BUILD_INTERFACE:cppcoro>)

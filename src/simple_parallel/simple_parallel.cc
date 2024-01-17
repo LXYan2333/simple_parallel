@@ -1,11 +1,14 @@
 #include <boost/mpi.hpp>
-#include <boost/mpi/environment.hpp>
 #include <cstddef>
 #include <cstdio>
+#include <cstdlib>
+#include <fstream>
+#include <iostream>
 #include <mimalloc.h>
 #include <mpi.h>
 #include <simple_parallel/advance.h>
 #include <simple_parallel/mpi_util.h>
+#include <sys/personality.h>
 #include <ucontext.h>
 
 #include <simple_parallel/simple_parallel.h>
@@ -19,18 +22,63 @@ namespace simple_parallel {
 
     stack_and_heap_info stack_and_heap_info;
 
-    auto init(int (*virtual_main)(int, char**), int argc, char** argv) -> void {
+    auto init(int (*virtual_main)(int, char**),
+              int                    argc,
+              char**                 argv,
+              bmpi::threading::level mpi_threading_level) -> void {
 
-        bmpi::environment env{
-            argc, argv, bmpi::threading::level::multiple, true};
+        bmpi::environment  env{argc, argv, mpi_threading_level, true};
+        bmpi::communicator world{};
 
-        int my_rank   = bmpi::communicator{}.rank();
-        int num_procs = bmpi::communicator{}.size();
+        int my_rank   = world.rank();
+        int num_procs = world.size();
 
         if (num_procs == 1) {
             // only one process, no need to do anything
             virtual_main(argc, argv);
             return;
+        } else {
+            // check whether the current process is running without ASLR
+            std::ifstream filestat{"/proc/self/personality"};
+            std::string   line;
+            std::getline(filestat, line);
+            std::stringstream ss{line};
+            uint32_t          personality;
+            ss >> std::hex >> personality;
+
+            // exit if ASLR is not disabled
+            bool should_exit = (personality & ADDR_NO_RANDOMIZE) == 0u;
+            MPI_Allreduce(MPI_IN_PLACE,
+                          &should_exit,
+                          1,
+                          MPI_C_BOOL,
+                          MPI_LOR,
+                          MPI_COMM_WORLD);
+            if (should_exit) {
+                if (my_rank == 0) {
+                    // clang-format off
+                    std::cerr << "ASLR is not disabled. Please run the program with ASLR disabled.\n";
+                    std::cerr << "\n";
+                    std::cerr << "Execute this program with following command:\n";
+                    std::cerr << "\n";
+                    std::cerr << "    mpirun <mpi argument> setarch `uname -m` -R ";
+                    for (int i = 0; i < argc; i++) {
+                        std::cerr << argv[i] << " ";
+                    }
+                    std::cerr << "\n";
+                    std::cerr << "\n";
+                    std::cerr << "If you do not use bash shell, please run the following command instead:\n";
+                    std::cerr << "\n"; 
+                    std::cerr << "   bash -c \"mpirun <mpi argument> setarch `uname -m` -R";
+                    for (int i = 0; i < argc; i++) {
+                        std::cerr << " " << argv[i];
+                    }
+                    std::cerr << "\"\n";
+                    std::cerr << "\n";
+                    // clang-format on
+                    world.abort(1);
+                }
+            }
         }
 
         // find a virtual memory space that is free on all MPI processes
@@ -38,7 +86,8 @@ namespace simple_parallel {
             1024uz * 1024 * 1024 * 8, // 8GB
             1024uz * 1024 * 1024 * 1024 * 20 /* 20TB */);
 
-        auto [stack_len, stack_bottom_ptr, heap_len, heap_ptr] = stack_and_heap_info;
+        auto [stack_len, stack_bottom_ptr, heap_len, heap_ptr] =
+            stack_and_heap_info;
 
         // set my_rank = 0's stack and heap to the new location
         if (my_rank == 0) {
@@ -63,7 +112,7 @@ namespace simple_parallel {
             target_context.uc_stack.ss_sp = reinterpret_cast<void*>(
                 reinterpret_cast<size_t>(stack_bottom_ptr) - stack_len);
             target_context.uc_stack.ss_size = stack_len;
-            target_context.uc_link = &context_current;
+            target_context.uc_link          = &context_current;
             makecontext(&target_context,
                         reinterpret_cast<void (*)()>(virtual_main),
                         2,

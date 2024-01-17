@@ -9,6 +9,8 @@ function(simple_parallel_setup_dependencies)
     find_package(MPI REQUIRED COMPONENTS C)
     message(STATUS "Run: ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} ${MPIEXEC_MAX_NUMPROCS} ${MPIEXEC_PREFLAGS} EXECUTABLE ${MPIEXEC_POSTFLAGS} ARGS")
 
+    find_package(OpenMP REQUIRED)
+
     CPMAddPackage("gh:TheLartians/PackageProject.cmake@1.11.1")
 
     # add Boost::mpi
@@ -51,5 +53,10 @@ function(simple_parallel_setup_dependencies)
         GITHUB_REPOSITORY "Microsoft/GSL"
         VERSION 4.0.0
         OPTIONS "GSL_INSTALL ON")
+    CPMAddPackage(
+        NAME cppcoro
+        GIT_TAG a3082f56ba135a659f7386b00ff797ba441207ba
+        GITHUB_REPOSITORY "andreasbuhr/cppcoro"
+        OPTIONS "BUILD_TESTING OFF")
 
 endfunction()

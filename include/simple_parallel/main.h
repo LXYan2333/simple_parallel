@@ -6,7 +6,8 @@ auto virtual_main(int argc, char** argv) -> int;
 
 auto main(int argc, char** argv) -> int {
 
-    simple_parallel::init(virtual_main, argc, argv);
+    simple_parallel::init(
+        virtual_main, argc, argv, bmpi::threading::level::serialized);
 
     return 0;
 }

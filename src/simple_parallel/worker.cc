@@ -30,11 +30,19 @@ namespace simple_parallel::advance {
                     MPI_Bcast(
                         &stack_len, sizeof(void*), MPI_BYTE, 0, MPI_COMM_WORLD);
 
+#ifdef simple_parallel_MPI_BIG_COUNT
                     MPI_Bcast_c(stack_frame_ptr,
                                 static_cast<MPI_Count>(stack_len),
                                 MPI_BYTE,
                                 0,
                                 MPI_COMM_WORLD);
+#else
+                    MPI_Bcast(stack_frame_ptr,
+                              static_cast<int>(stack_len),
+                              MPI_BYTE,
+                              0,
+                              MPI_COMM_WORLD);
+#endif
                     break;
                 }
                 case mpi_util::tag_enum::send_heap: {
@@ -56,11 +64,19 @@ namespace simple_parallel::advance {
                                   MPI_BYTE,
                                   0,
                                   MPI_COMM_WORLD);
+#ifdef simple_parallel_MPI_BIG_COUNT
                         MPI_Bcast_c(block_ptr,
                                     static_cast<MPI_Count>(block_size),
                                     MPI_BYTE,
                                     0,
                                     MPI_COMM_WORLD);
+#else
+                        MPI_Bcast(block_ptr,
+                                  static_cast<int>(block_size),
+                                  MPI_BYTE,
+                                  0,
+                                  MPI_COMM_WORLD);
+#endif
                     }
                     break;
                 }
