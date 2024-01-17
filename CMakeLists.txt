@@ -49,7 +49,7 @@ packageProject(
     # (optional) option to install only header files with matching pattern
     INCLUDE_HEADER_PATTERN "*.h"
     # semicolon separated list of the project's dependencies
-    DEPENDENCIES "MPI REQUIRED COMPONENTS C; Boost 1.84.0 CONFIG REQUIRED COMPONENTS mpi; mimalloc CONFIG REQUIRED"
+    DEPENDENCIES "MPI REQUIRED COMPONENTS C; Boost 1.84.0 REQUIRED COMPONENTS mpi; mimalloc REQUIRED"
     # (optional) install your library with a namespace (Note: do NOT add extra '::')
     NAMESPACE simple_parallel
     # (optional) define the project's version compatibility, defaults to `AnyNewerVersion`
