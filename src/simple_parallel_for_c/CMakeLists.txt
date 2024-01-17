@@ -30,3 +30,6 @@ target_link_system_libraries(
     PUBLIC  $<BUILD_INTERFACE:MPI::MPI_C>
             $<BUILD_INTERFACE:mimalloc>
             $<BUILD_INTERFACE:simple_parallel>)
+
+install(TARGETS simple_parallel_for_c
+        EXPORT  simple_parallelTargets)
