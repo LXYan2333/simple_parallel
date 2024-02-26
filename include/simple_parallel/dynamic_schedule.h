@@ -178,8 +178,8 @@ namespace simple_parallel::advance {
      * server is not always active, so we prefetch somes task to each MPI
      * process, so we can hide one task's comminication latency using another
      * task's calculation time.
-     * @param generator the generator that generate all tasks.
-     * `cppcoro::generator<T>` is used.
+     * @param generator a generator that generate all tasks, or a container that
+     * can be range-based for.
      * @param server_first_start_delay optional parameter. the server is delayed
      * several milliseconds before it starts to generate task, to make sure all
      * MPI processes have send their request to the server.

@@ -5,6 +5,7 @@
 #ifdef SIMPLE_PARALLEL_COMPILER_GNU
 // use gcc's nested function extension
 // see https://gcc.gnu.org/onlinedocs/gcc/Nested-Functions.html
+// warning: this extension is not thread-safe!
     #define SIMPLE_PARALLEL_LAMBDA(name, return_type, ...)                     \
         return_type name(__VA_ARGS__)
 
