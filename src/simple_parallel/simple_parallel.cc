@@ -89,6 +89,15 @@ namespace simple_parallel {
         auto [stack_len, stack_bottom_ptr, heap_len, heap_ptr] =
             stack_and_heap_info;
 
+        // print PID and wait key input
+        // // this is for debug purpose. you can launch this program and attach
+        // // debugger to specified PID, then press any key to continue
+        // std::cout << "rank: " << my_rank << ", PID: " << getpid() << "\n";
+        // if (my_rank == 0) {
+        //     std::cout << "Press any key to continue.\n";
+        //     std::ignore = std::getchar();
+        // }
+
         // set my_rank = 0's stack and heap to the new location
         if (my_rank == 0) {
             mi_arena_id_t mi_id{};
