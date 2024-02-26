@@ -14,20 +14,12 @@ target_link_libraries(
     PRIVATE $<BUILD_INTERFACE:simple_parallel::simple_parallel_options>
             $<BUILD_INTERFACE:simple_parallel::simple_parallel_warnings>)
 
-if(NOT simple_parallel_FORCE_FIND_PACKAGE)
-    # suppress warning from boost
-    target_include_directories(
-        simple_parallel 
-        SYSTEM 
-        PUBLIC  $<BUILD_INTERFACE:${Boost_SOURCE_DIR}/libs/mpl/include/> 
-                $<BUILD_INTERFACE:${Boost_SOURCE_DIR}/libs/mpi/include/>)
-endif()
 
 target_link_system_libraries(
     simple_parallel 
-    PUBLIC  $<BUILD_INTERFACE:MPI::MPI_C>
-            $<BUILD_INTERFACE:OpenMP::OpenMP_CXX>
-            $<BUILD_INTERFACE:mimalloc>
-            $<BUILD_INTERFACE:Microsoft.GSL::GSL>
-            $<BUILD_INTERFACE:Boost::mpi>
-            $<BUILD_INTERFACE:cppcoro>)
+    PUBLIC  OpenMP::OpenMP_CXX
+            mimalloc
+            MPI::MPI_C
+            Boost::mpi
+            cppcoro::cppcoro
+    PRIVATE Microsoft.GSL::GSL)

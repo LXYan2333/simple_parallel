@@ -27,9 +27,9 @@ target_link_libraries(
 
 target_link_system_libraries(
     simple_parallel_for_c 
-    PUBLIC  $<BUILD_INTERFACE:MPI::MPI_C>
-            $<BUILD_INTERFACE:mimalloc>
-            $<BUILD_INTERFACE:simple_parallel>)
+    PUBLIC  simple_parallel
+            OpenMP::OpenMP_C)
 
 install(TARGETS simple_parallel_for_c
-        EXPORT  simple_parallelTargets)
+        EXPORT  simple_parallelTargets
+        ARCHIVE DESTINATION lib/${PROJECT_NAME}-${PROJECT_VERSION})
