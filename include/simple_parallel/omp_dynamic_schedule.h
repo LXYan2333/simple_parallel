@@ -30,7 +30,7 @@ namespace simple_parallel {
                 if (begin == end) {
                     should_break = true;
                 } else {
-                    task = std::move(*begin);
+                    task = *begin;
                     begin++;
                 }
             }
@@ -76,7 +76,7 @@ namespace simple_parallel {
                 if (_s_p_begin == _s_p_end) {                                  \
                     _s_p_should_break = true;                                  \
                 } else {                                                       \
-                    simple_parallel_task = std::move(*_s_p_begin);             \
+                    simple_parallel_task = *_s_p_begin;                        \
                     ++_s_p_begin;                                              \
                 }                                                              \
             }                                                                  \
