@@ -1,63 +1,45 @@
 #include <cppcoro/generator.hpp>
-#include <iostream>
+#include <list>
 #include <mpi.h>
 #include <omp.h>
 #include <simple_parallel/main.h>
 #include <simple_parallel/omp_dynamic_schedule.h>
 #include <simple_parallel/simple_parallel.h>
-#include <thread>
 
-auto main() -> int {
+/*
+ * @@name:	reduction.6
+ * @@type:	C
+ * @@operation:	run
+ * @@expect:	unspecified
+ * @@version:	omp_5.1
+ */
+#include <stdio.h>
 
-    // original from OpenMP's example
-    // https://github.com/OpenMP/Examples/blob/main/data_environment/sources/reduction.6.c
-
-    /*
-     * @@name:	    reduction.6
-     * @@type:	    C
-     * @@operation:	run
-     * @@expect:	unspecified
-     * @@version:	omp_5.1
-     */
-
-
-    int mpi_reduce_result = 0;
-
+int main(void) {
     int a, i;
-    int b = 100;
-
 
     SIMPLE_PARALLEL_BEGIN(true)
 #pragma omp parallel
     {
+        a = 0;
+
+// To avoid race conditions, add a barrier here.
+#pragma omp barrier
+
         SIMPLE_PARALLEL_OMP_DYNAMIC_SCHEDULE_GENERATOR
-        [](int b) -> cppcoro::generator<int> {
-            for (int i = 0; i < b; i++) {
+        []() -> cppcoro::generator<int> {
+            for (int i = 0; i < 10; i++) {
                 co_yield i;
             }
-        }(b);
-        SIMPLE_PARALLEL_OMP_DYNAMIC_SCHEDULE_PAYLOAD(20)
-        std::cout << "task is " << simple_parallel_task << "on thread num"
-                  << omp_get_thread_num() << "\n";
-        mpi_reduce_result += simple_parallel_task;
-        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+        }();
+        SIMPLE_PARALLEL_OMP_DYNAMIC_SCHEDULE_PAYLOAD(4)
+        a += simple_parallel_task;
         SIMPLE_PARALLEL_OMP_DYNAMIC_SCHEDULE_END
 
-        // simple_parallel::omp_dynamic_schedule(
-        //     3,
-        //     [&] -> cppcoro::generator<int> {
-        //         for (int i = 0; i < b; i++) {
-        //             co_yield i;
-        //         }
-        //     }(),
-        //     [&](const int& i) {
-        //         std::cout << i << "\n";
-        //         mpi_reduce_result += i;
-        //     });
+#pragma omp single
+        printf("Sum is %d\n", a);
     }
-    MPI_Allreduce(
-        MPI_IN_PLACE, &mpi_reduce_result, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &a, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
     SIMPLE_PARALLEL_END
-    std::cout << "Sum is " << mpi_reduce_result << "\n";
     return 0;
 }
