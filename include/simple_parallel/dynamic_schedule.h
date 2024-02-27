@@ -67,7 +67,7 @@ namespace simple_parallel::advance {
             co_await std::suspend_always();
         }
 
-        // tell all client that all tasks are generated
+        // tell all client that all tasks have beed generated
         std::vector<bmpi::request> pending_send_end_requests;
         pending_send_end_requests.reserve(static_cast<size_t>(comm.size()));
         for (int i = 0; i < comm.size(); i++) {
@@ -198,23 +198,32 @@ namespace simple_parallel::advance {
         size_t                                     prefetch_count,
         T                                          generator,
         std::chrono::duration<int64_t, std::milli> server_first_start_delay =
-            std::chrono::milliseconds{10}) -> cppcoro::generator<U> {
+            std::chrono::milliseconds{10})
+        // returns a generator that can generate values across several nodes.
+        -> cppcoro::generator<U> {
+
         using task_type = std::remove_reference_t<decltype(*generator.begin())>;
 
         static_assert(std::is_same_v<task_type, U>);
 
+        // a new communicator is created, dedicated for this generator
         bmpi::communicator comm{MPI_COMM_WORLD, bmpi::comm_duplicate};
 
+        // the client runs on all ranks, the server only runs on rank 0
         auto client = dynamic_schedule_client<task_type>(prefetch_count, comm);
         auto server = dynamic_schedule_server(comm, std::move(generator));
 
         bool first_run = true;
 
         while (true) {
+            // update the client. if the task is not nullopt
             if (auto task = client.next_task()) {
+                // yield value
                 co_yield task.value();
             }
+            // on rank 0
             if (comm.rank() == 0) {
+                // update the server
                 if (!server.handle.done()) {
                     if (first_run) [[unlikely]] {
                         first_run = false;
@@ -222,10 +231,12 @@ namespace simple_parallel::advance {
                     }
                     server.handle.resume();
                 }
+                // if the client and server is done on rank 0, break the loop
                 if (client.handle.done() and server.handle.done()) {
                     break;
                 }
             } else {
+                // on other ranks, if the client is done, break the loop
                 if (client.handle.done()) {
                     break;
                 }
