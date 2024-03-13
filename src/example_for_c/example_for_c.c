@@ -39,7 +39,7 @@ int main() {
         //                 break;
         //             }
         SIMPLE_PARALLEL_C_OMP_DYNAMIC_SCHEDULE_BEGIN(
-            0, 200000000, 1, 2, simple_parallel_run, begin, end)
+            0, 200000000, 1, 8, 2, simple_parallel_run, begin, end)
         printf("begin: %d, end: %d, rank:%d, size:%d \n",
                begin,
                end,

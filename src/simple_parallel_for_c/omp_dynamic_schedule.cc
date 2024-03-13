@@ -17,17 +17,28 @@ extern "C" {
     auto simple_parallel_omp_generator_set(int    begin,
                                            int    end,
                                            int    grain_size,
+                                           int    processor,
                                            size_t prefetch_count,
                                            bool   parallel_run) -> void {
         assert(grain_size > 0);
 
-        auto gen = [](int _begin, int _end, int _grain_size)
+        auto gen = [](int _begin, int _end, int _grain_size, int _processor)
             -> cppcoro::generator<std::pair<int, int>> {
-            for (int i = _begin; i < _end; i += _grain_size) {
-                int j = std::min(i + _grain_size, _end);
-                co_yield std::make_pair(i, j);
+            int unused_iter = _end - _begin;
+            while (unused_iter > 0) {
+                int next_schedule = (unused_iter - 1) / _processor + 1;
+
+                // next_schedule should not be less than grain_size
+                next_schedule = std::max(next_schedule, _grain_size);
+
+                // next_schedule should not be greater than unused_iter
+                next_schedule = std::min(next_schedule, unused_iter);
+
+                co_yield std::make_pair(_begin, _begin + next_schedule);
+                _begin      += next_schedule;
+                unused_iter -= next_schedule;
             }
-        }(begin, end, grain_size);
+        }(begin, end, grain_size, processor);
 
         if (parallel_run) {
             simple_generator_for_c =

@@ -11,6 +11,7 @@ extern "C" {
     void simple_parallel_omp_generator_set(int    begin,
                                            int    end,
                                            int    grain_size,
+                                           int    processor,
                                            size_t prefetch_count,
                                            bool   parallel_run);
 
@@ -26,14 +27,19 @@ extern "C" {
 #define SIMPLE_PARALLEL_C_OMP_DYNAMIC_SCHEDULE_BEGIN(_begin,                   \
                                                      _end,                     \
                                                      _grain_size,              \
+                                                     _processor,               \
                                                      _prefetch_count,          \
                                                      simple_parallel_run,      \
                                                      _begin_var,               \
                                                      _end_var)                 \
     _Pragma("omp masked")                                                      \
     {                                                                          \
-        simple_parallel_omp_generator_set(                                     \
-            _begin, _end, _grain_size, _prefetch_count, simple_parallel_run);  \
+        simple_parallel_omp_generator_set(_begin,                              \
+                                          _end,                                \
+                                          _grain_size,                         \
+                                          _processor,                          \
+                                          _prefetch_count,                     \
+                                          simple_parallel_run);                \
     }                                                                          \
     _Pragma("omp barrier")                                                     \
     bool _s_p_should_break = false;                                            \
