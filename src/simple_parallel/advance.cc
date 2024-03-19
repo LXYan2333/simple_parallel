@@ -166,6 +166,7 @@ namespace simple_parallel {
                         0,
                         MPI_COMM_WORLD);
 #else
+            mpi_util::test_count_overflow(stack_len);
             MPI_Bcast(stack_frame_ptr,
                       static_cast<int>(stack_len),
                       MPI_BYTE,
@@ -193,6 +194,7 @@ namespace simple_parallel {
                             0,
                             MPI_COMM_WORLD);
 #else
+                mpi_util::test_count_overflow(block_size);
                 MPI_Bcast(block,
                           static_cast<int>(block_size),
                           MPI_BYTE,

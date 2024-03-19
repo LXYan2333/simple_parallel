@@ -2,6 +2,7 @@
 
 #include <boost/mpi.hpp>
 #include <cassert>
+#include <cstddef>
 #include <cstdint>
 #include <mpi.h>
 
@@ -22,6 +23,19 @@ namespace simple_parallel::mpi_util {
         //     std::is_convertible_v<boost::mpi::is_mpi_datatype<tag_enum>,
         //                           boost::mpl::true_>);
         MPI_Bcast(&tag, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    }
+
+    inline auto test_count_overflow(size_t count) {
+        if (count > std::numeric_limits<int>::max()) [[unlikely]] {
+            std::cerr << "Error: trying to send memory region larger than "
+                         "MPI_COUNT can represent!\n";
+            std::cerr << "solution: using a MPI implementation that supports "
+                         "MPI Big Count specification (eg. Intel MPI 2021.11) "
+                         "and compile simple_parallel with cmake "
+                         "-Dsimple_parallel_MPI_BIG_COUNT=ON";
+            boost::mpi::communicator{}.abort(1);
+            std::terminate();
+        }
     }
 
     // // https://www.mcs.anl.gov/research/projects/mpi/sendmode.html
