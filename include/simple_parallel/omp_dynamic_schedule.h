@@ -17,7 +17,7 @@ namespace simple_parallel {
 
 #pragma omp masked
         {
-            client_generator = advance::dynamic_schedule<task_type>(
+            client_generator = detail::dynamic_schedule<task_type>(
                 prefetch_count, std::move(all_task));
             begin = client_generator.begin();
             end   = client_generator.end();
@@ -62,7 +62,7 @@ namespace simple_parallel {
         _Pragma("omp masked")                                                  \
         {                                                                      \
             simple_parallel_client_generator =                                 \
-                simple_parallel::advance::dynamic_schedule<task_type>(         \
+                simple_parallel::detail::dynamic_schedule<task_type>(         \
                     _s_p_prefetch_count,                                       \
                     std::move(_simple_parallel_all_task_generator));           \
             _s_p_begin = simple_parallel_client_generator.begin();             \

@@ -7,11 +7,11 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-    void simple_parallel_init(int (*virtual_main)(int, char**),
-                              int    argc,
-                              char** argv);
+    int simple_parallel_init(int (*virtual_main)(int, char**),
+                             int    argc,
+                             char** argv);
 
-    void simple_parallel_run_lambda(void* lambda, bool parallel_run);
+    void simple_parallel_run_invocable(void* invocable, bool parallel_run);
 
 #ifdef __cplusplus
 }
@@ -27,6 +27,6 @@ extern "C" {
 
 #define SIMPLE_PARALLEL_C_END                                                  \
         };                                                                     \
-        simple_parallel_run_lambda(&simple_parallel_lambda_tag,                \
+        simple_parallel_run_invocable(&simple_parallel_lambda_tag,             \
                                    simple_parallel_run);                       \
     };

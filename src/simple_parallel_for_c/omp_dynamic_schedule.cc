@@ -42,7 +42,7 @@ extern "C" {
 
         if (parallel_run) {
             simple_generator_for_c =
-                simple_parallel::advance::dynamic_schedule<std::pair<int, int>>(
+                simple_parallel::detail::dynamic_schedule<std::pair<int, int>>(
                     prefetch_count, std::move(gen));
         } else {
             simple_generator_for_c = std::move(gen);

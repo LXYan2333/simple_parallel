@@ -10,6 +10,7 @@ int main() {
 
     int* def = malloc(10 * sizeof(int));
     def[0]   = 50;
+
     SIMPLE_PARALLEL_C_BEGIN(true)
 
 #pragma omp parallel
@@ -38,16 +39,32 @@ int main() {
         //             if (should_break) {
         //                 break;
         //             }
-        SIMPLE_PARALLEL_C_OMP_DYNAMIC_SCHEDULE_BEGIN(
-            0, 200000000, 1, 8, 2, simple_parallel_run, begin, end)
-        printf("begin: %d, end: %d, rank:%d, size:%d \n",
-               begin,
-               end,
-               my_rank,
-               comm_size);
-        count += abc;
-        count += def[0];
-        SIMPLE_PARALLEL_C_OMP_DYNAMIC_SCHEDULE_END
+#pragma omp masked
+        {
+            simple_parallel_omp_generator_set(
+                0, 20000, 1, 8, 2, simple_parallel_run);
+        }
+#pragma omp barrier
+        bool _s_p_should_break = false;
+        while (true) {
+#pragma omp critical
+            {
+                _s_p_should_break = simple_parallel_omp_generator_done();
+                if (!_s_p_should_break) {
+                    simple_parallel_omp_generator_next(&begin, &end);
+                }
+            }
+            if (_s_p_should_break) {
+                break;
+            }
+            printf("begin: %d, end: %d, rank:%d, size:%d \n",
+                   begin,
+                   end,
+                   my_rank,
+                   comm_size);
+            count += abc;
+            count += def[0];
+        }
     }
     SIMPLE_PARALLEL_C_END
 }

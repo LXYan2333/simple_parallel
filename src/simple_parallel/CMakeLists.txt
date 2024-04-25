@@ -22,4 +22,8 @@ target_link_system_libraries(
             MPI::MPI_C
             Boost::mpi
             cppcoro::cppcoro
-    PRIVATE Microsoft.GSL::GSL)
+            Microsoft.GSL::GSL)  
+
+install(TARGETS mimalloc
+        EXPORT  simple_parallelTargets
+        ARCHIVE DESTINATION lib/mimalloc_for_simple_parallel)

@@ -12,7 +12,6 @@ function(simple_parallel_setup_dependencies)
 
     CPMAddPackage("gh:TheLartians/PackageProject.cmake@1.11.1")
     find_package(Boost REQUIRED COMPONENTS mpi)
-    find_package(mimalloc REQUIRED)
     find_package(Microsoft.GSL REQUIRED)
     find_package(cppcoro REQUIRED)
 

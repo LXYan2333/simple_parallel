@@ -1,3 +1,4 @@
+add_subdirectory(mimalloc_for_simple_parallel)
 add_subdirectory(simple_parallel)
 add_subdirectory(simple_parallel_for_c)
 add_subdirectory(example)

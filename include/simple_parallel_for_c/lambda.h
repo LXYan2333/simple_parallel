@@ -2,7 +2,7 @@
 
 #include <internal_use_only/simple_parallel_config.h>
 
-#ifdef SIMPLE_PARALLEL_COMPILER_GNU
+#ifdef COMPILER_SUPPORTS_NESTED_FUNCTIONS
 // use gcc's nested function extension
 // see https://gcc.gnu.org/onlinedocs/gcc/Nested-Functions.html
 // warning: this extension is not thread-safe!
@@ -24,7 +24,7 @@
 
 // test whether simple_parallel was compiled with the same compiler as the
 // current project
-#ifdef SIMPLE_PARALLEL_COMPILER_GNU // gcc
+#ifdef COMPILER_SUPPORTS_NESTED_FUNCTIONS // gcc
     #if !__GNUC__
         #error                                                                 \
             "simple_parallel was compiled with clang (and block extension is used), but now you are using it in a project compiled with gcc (which supports nested function extension instead of block extension). Please recompile simple_parallel with gcc to switch to its gcc nested function extension support."

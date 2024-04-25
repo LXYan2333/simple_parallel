@@ -3,15 +3,47 @@ add_library(simple_parallel_for_c ${source})
 add_library(simple_parallel::simple_parallel_for_c ALIAS simple_parallel_for_c)
 
 # if using clang, enable blocks extension
-# maybe https://cmake.org/cmake/help/latest/command/try_compile.html is a better solution.
-if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+include(CheckCCompilerFlag)
+check_c_compiler_flag("-fblocks" COMPILER_SUPPORTS_FBLOCKS_FLAG)
+if(COMPILER_SUPPORTS_FBLOCKS_FLAG)
     target_compile_options(
         simple_parallel_for_c 
         PUBLIC  -fblocks)
     target_link_options(
         simple_parallel_for_c 
         PUBLIC  -lBlocksRuntime)
+    try_compile(
+        COMPILER_SUPPORTS_BLOCKS
+        SOURCES ${PROJECT_SOURCE_DIR}/src/try_compile/test_blocks.c
+        LINK_OPTIONS "-lBlocksRuntime"
+        OUTPUT_VARIABLE OUTPUT)
+    if(NOT COMPILER_SUPPORTS_BLOCKS)
+        message(FATAL_ERROR "\nmissing BlocksRuntime library.
+please install it from your distribution's repository:
+    Debian:libblocksruntime-dev
+    Gentoo:sys-libs/blocksruntime
+    Fedora:libblocksruntime
+or build it from source: https://github.com/mackyle/blocksruntime
+or use gcc instead.")
+    endif()
+else()
+    try_compile(
+        COMPILER_SUPPORTS_NESTED_FUNCTIONS
+        ${CMAKE_CURRENT_BINARY_DIR}
+        ${PROJECT_SOURCE_DIR}/src/try_compile/test_nested_function.c)
+    if(NOT COMPILER_SUPPORTS_NESTED_FUNCTIONS)
+        message(FATAL_ERROR "Compiler does not support gcc's nested functions or clang's blocks extension. Please use clang or gcc.")
+    endif()
 endif()
+
+# if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+#     target_compile_options(
+#         simple_parallel_for_c 
+#         PUBLIC  -fblocks)
+#     target_link_options(
+#         simple_parallel_for_c 
+#         PUBLIC  -lBlocksRuntime)
+# endif()
 
 target_include_directories(
     simple_parallel_for_c 

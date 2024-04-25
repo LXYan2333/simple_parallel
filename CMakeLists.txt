@@ -25,10 +25,10 @@ target_compile_features(simple_parallel_options INTERFACE cxx_std_${CMAKE_CXX_ST
 add_library(simple_parallel::simple_parallel_options ALIAS simple_parallel_options)
 add_library(simple_parallel::simple_parallel_warnings ALIAS simple_parallel_warnings)
 
+add_subdirectory(src)
+
 # configure files based on CMake configuration options
 add_subdirectory(configured_files)
-
-add_subdirectory(src)
 
 if(CMAKE_SKIP_INSTALL_RULES)
     return()
@@ -49,7 +49,7 @@ packageProject(
     # (optional) option to install only header files with matching pattern
     INCLUDE_HEADER_PATTERN "*.h"
     # semicolon separated list of the project's dependencies
-    DEPENDENCIES "MPI REQUIRED COMPONENTS C; Boost REQUIRED COMPONENTS mpi; mimalloc REQUIRED; OpenMP REQUIRED; cppcoro REQUIRED"
+    DEPENDENCIES "MPI REQUIRED COMPONENTS C; Boost REQUIRED COMPONENTS mpi; OpenMP REQUIRED; cppcoro REQUIRED"
     # (optional) install your library with a namespace (Note: do NOT add extra '::')
     NAMESPACE simple_parallel
     # (optional) define the project's version compatibility, defaults to `AnyNewerVersion`

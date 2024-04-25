@@ -4,7 +4,25 @@
     // 欲了解更多信息，请访问: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
-        {
+    {
+        "type": "lldb",
+        "request": "attach",
+        "name": "Attach",
+        "pid": "${command:pickMyProcess}" // use ${command:pickProcess} to pick other users' processes
+    },
+    {
+        "type": "lldb",
+        "request": "launch",
+        "name": "single MPI process Launch",
+        "program": "setarch",
+        "args": [
+            "x86_64",
+            "-R",
+            "${workspaceFolder}/build/src/example/simple_parallel_example"
+        ],
+        "cwd": "${workspaceFolder}"
+    },
+    {
             "name": "(gdb) 附加",
             "type": "cppdbg",
             "request": "attach",

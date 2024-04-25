@@ -1,15 +1,14 @@
 #pragma once
 
+#include <boost/mpi.hpp>
 #include <simple_parallel/simple_parallel.h>
 
 auto virtual_main(int argc, char** argv) -> int;
 
 auto main(int argc, char** argv) -> int {
-
-    simple_parallel::init(
-        virtual_main, argc, argv, bmpi::threading::level::serialized);
-
-    return 0;
+    int r = 0;
+    simple_parallel::init([&] { r = virtual_main(argc, argv); });
+    return r;
 }
 
 // evil macro to rename `main` to `virtual_main`, and unify the signature to

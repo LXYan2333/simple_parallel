@@ -6,4 +6,4 @@
 
 namespace bmpi = boost::mpi;
 
-namespace simple_parallel::advance {} // namespace simple_parallel::advance
+namespace simple_parallel::detail {} // namespace simple_parallel::detail

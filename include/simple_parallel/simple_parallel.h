@@ -4,55 +4,34 @@
 #include <cassert>
 #include <functional>
 #include <mpi.h>
-#include <simple_parallel/advance.h>
+#include <simple_parallel/detail.h>
 #include <simple_parallel/dynamic_schedule.h>
+#include <simple_parallel/master.h>
 #include <simple_parallel/mpi_util.h>
+#include <type_traits>
+
+// if you have a thread that you wish not to be proxied by simple_parallel, set
+// this thread_local variable to false before you try to malloc/new anything.
+extern "C" thread_local bool s_p_this_thread_should_be_proxied;
 
 namespace simple_parallel {
 
-    auto init(int (*virtual_main)(int, char**),
-              int                    argc,
-              char**                 argv,
-              bmpi::threading::level mpi_threading_level) -> void;
+    auto init(std::move_only_function<void()> call_after_init) -> void;
 
     template <typename T>
         requires std::is_invocable_v<T>
-    auto run_lambda(T lambda, bool parallel_run = true) -> void {
-        assert(boost::mpi::communicator{}.rank() == 0);
+    auto run_invocable(T invocable, bool parallel_run = true) -> void {
+        assert(detail::comm.rank() == 0);
 
         // in some cases, we want to run the lambda only on the master process
-        if (boost::mpi::communicator{}.size() == 1 || !parallel_run) {
-            lambda();
+        if (detail::comm.size() == 1 || !parallel_run) {
+            invocable();
             return;
         }
 
-        std::function<void()> f = lambda;
-        advance::broadcast_stack_and_heap();
 
-        using function = std::function<void()>;
-
-        function* pointer_to_std_function = &f;
-
-        // tell worker processes to run the lambda
-        mpi_util::broadcast_tag(mpi_util::tag_enum::run_lambda);
-
-        MPI_Bcast(&pointer_to_std_function,
-                  sizeof(function*),
-                  MPI_BYTE,
-                  0,
-                  MPI_COMM_WORLD);
-
-        f();
+        master::run_std_function_on_all_nodes([&] { invocable(); });
     }
-
-    template <typename T>
-        requires std::is_invocable_v<T>
-    auto parallel_run(bool parallel, T payload) -> void {
-        bool run_in_parallel = bmpi::communicator{}.size() != 1 && parallel;
-        run_lambda(payload, run_in_parallel);
-    }
-
-
 } // namespace simple_parallel
 
 // clang-format off
@@ -60,7 +39,7 @@ namespace simple_parallel {
     {                                                                          \
         const bool simple_parallel_run =                                       \
             boost::mpi::communicator{}.size() != 1 && (_parallel_run);         \
-        simple_parallel::run_lambda([&] {                                      \
+        simple_parallel::run_invocable([&] {                                   \
             int s_p_start_index;
 
 #define SIMPLE_PARALLEL_END                                                    \

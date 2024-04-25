@@ -1,44 +1,84 @@
+#include <simple_parallel/simple_parallel.h>
+
+#include <bit>
 #include <boost/mpi.hpp>
-#include <cstddef>
+#include <boost/mpi/collectives/all_reduce.hpp>
+#include <boost/mpi/environment.hpp>
+#include <cassert>
+#include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
+#include <functional>
+#include <internal_use_only/simple_parallel_config.h>
 #include <iostream>
 #include <mimalloc.h>
 #include <mpi.h>
-#include <simple_parallel/advance.h>
+#include <mutex>
+#include <simple_parallel/detail.h>
+#include <simple_parallel/master.h>
 #include <simple_parallel/mpi_util.h>
+#include <simple_parallel/worker.h>
+#include <sys/mman.h>
 #include <sys/personality.h>
+#include <thread>
+#include <threads.h>
 #include <ucontext.h>
 
-#include <simple_parallel/simple_parallel.h>
 
 namespace bmpi = boost::mpi;
+using namespace simple_parallel::detail;
+
+#ifndef NDEBUG
+static bool initialized = false;
+#endif
 
 namespace simple_parallel {
 
-    // this heap is used by my_rank = 0
-    mi_heap_t* heap;
+    namespace {
+        // since passing 64bit parameter to `makecontext` is not part of the
+        // standard, we use global variable to pass this function.
+        // see
+        // https://www.man7.org/linux/man-pages/man3/swapcontext.3.html#NOTES
+        std::move_only_function<void()> func_to_call_after_init;
+    } // namespace
 
-    stack_and_heap_info stack_and_heap_info;
+    auto init(std::move_only_function<void()> call_after_init) -> void {
 
-    auto init(int (*virtual_main)(int, char**),
-              int                    argc,
-              char**                 argv,
-              bmpi::threading::level mpi_threading_level) -> void {
+#ifndef NDEBUG
+        if (initialized) {
+            std::cerr << "simple_parallel::init() is called more than once.\n";
+            std::terminate();
+        }
+        initialized = true;
+#endif
 
-        bmpi::environment  env{argc, argv, mpi_threading_level, true};
-        bmpi::communicator world{};
+        bmpi::environment env{bmpi::threading::level::multiple, true};
+        if (env.thread_level() != bmpi::threading::level::multiple) {
+            if (comm.rank() == 0) {
+                // clang-format off
+                std::cerr << "Error: the MPI implementation doesn't support MPI_THREAD_MULTIPLE!\n";
+                std::cerr << "Please use a MPI implementation that supports it. e.g. OpenMPI\n";
+                std::cerr << "https://docs.open-mpi.org/en/main/tuning-apps/multithreaded.html\n";
+                // clang-format on
+            }
+            env.abort(1);
+        }
+        comm      = {MPI_COMM_WORLD, bmpi::comm_duplicate};
+        mmap_comm = {MPI_COMM_WORLD, bmpi::comm_duplicate};
 
-        int my_rank   = world.rank();
-        int num_procs = world.size();
+        simple_parallel_register_heap = master::register_heap;
+        simple_parallel_register_munmaped_areas =
+            master::register_munmaped_areas;
 
-        if (num_procs == 1) {
+        if (comm.size() == 1) {
             // only one process, no need to do anything
-            virtual_main(argc, argv);
+            call_after_init();
             return;
-        } else {
-            // check whether the current process is running without ASLR
+        }
+
+        // check whether the current process is running with ASLR disabled
+        {
             std::ifstream filestat{"/proc/self/personality"};
             std::string   line;
             std::getline(filestat, line);
@@ -48,92 +88,154 @@ namespace simple_parallel {
 
             // exit if ASLR is not disabled
             bool should_exit = (personality & ADDR_NO_RANDOMIZE) == 0u;
-            MPI_Allreduce(MPI_IN_PLACE,
-                          &should_exit,
-                          1,
-                          MPI_C_BOOL,
-                          MPI_LOR,
-                          MPI_COMM_WORLD);
+            MPI_Allreduce(
+                MPI_IN_PLACE, &should_exit, 1, MPI_C_BOOL, MPI_LOR, comm);
             if (should_exit) {
-                if (my_rank == 0) {
+                if (comm.rank() == 0) {
                     // clang-format off
                     std::cerr << "ASLR is not disabled. Please run the program with ASLR disabled.\n";
                     std::cerr << "\n";
                     std::cerr << "Execute this program with following command:\n";
                     std::cerr << "\n";
-                    std::cerr << "    mpirun <mpi argument> setarch `uname -m` -R ";
-                    for (int i = 0; i < argc; i++) {
-                        std::cerr << argv[i] << " ";
-                    }
-                    std::cerr << "\n";
+                    std::cerr << "    mpirun <mpi argument> setarch `uname -m` -R <program> <args>\n";
                     std::cerr << "\n";
                     std::cerr << "If you do not use bash shell, please run the following command instead:\n";
                     std::cerr << "\n"; 
-                    std::cerr << "   bash -c \"mpirun <mpi argument> setarch `uname -m` -R";
-                    for (int i = 0; i < argc; i++) {
-                        std::cerr << " " << argv[i];
-                    }
-                    std::cerr << "\"\n";
+                    std::cerr << "   bash -c \"mpirun <mpi argument> setarch `uname -m` -R <program> <args>\"\n";
                     std::cerr << "\n";
                     // clang-format on
-                    world.abort(1);
+                    comm.abort(1);
                 }
             }
         }
 
-        // find a virtual memory space that is free on all MPI processes
-        stack_and_heap_info = advance::find_free_virtual_space(
-            1024uz * 1024 * 1024 * 8, // 8GB
-            1024uz * 1024 * 1024 * 1024 * 20 /* 20TB */);
+        simple_parallel_cross_node_heap_mmap = master::cross_node_heap_mmap;
 
-        auto [stack_len, stack_bottom_ptr, heap_len, heap_ptr] =
-            stack_and_heap_info;
+        // if environment variable SIMPLE_PARALLEL_DEBUG is set to 1, print PID
+        // and wait Enter.
+        // this is for debug purpose. you can launch this program and attach
+        // debugger to specified PID, then press Enter key to continue.
+        if (auto env_var = get_env_var("SIMPLE_PARALLEL_DEBUG")) {
+            if (env_var == "1") {
+                std::cout << "rank: " << comm.rank() << ", PID: " << getpid()
+                          << "\n";
+                if (comm.rank() == 0) {
+                    std::cout << "Press Enter to continue.\n";
+                    std::ignore = std::getchar();
+                }
+            }
+        }
 
-        // print PID and wait key input
-        // // this is for debug purpose. you can launch this program and attach
-        // // debugger to specified PID, then press any key to continue
-        // std::cout << "rank: " << my_rank << ", PID: " << getpid() << "\n";
-        // if (my_rank == 0) {
-        //     std::cout << "Press any key to continue.\n";
-        //     std::ignore = std::getchar();
-        // }
 
-        // set my_rank = 0's stack and heap to the new location
-        if (my_rank == 0) {
-            mi_arena_id_t mi_id{};
-            mi_manage_os_memory_ex(
-                heap_ptr,
-                heap_len,
-                false,
-                false,
-                true,
-                -1, // mimalloc haven't implemented this yet. see
-                    // https://github.com/microsoft/mimalloc/blob/4e50d6714d471b72b2285e25a3df6c92db944593/src/arena.c#L776
-                // may need to use HWLOC to find the NUMA node of the new heap
-                true,
-                &mi_id);
-            heap = mi_heap_new_in_arena(mi_id);
-            mi_heap_set_default(heap);
+        // find a virtual memory space that is free on all MPI processes, which
+        // will be used as stack later.
+        {
+            mem_end       = std::bit_cast<void*>(0x4000'0000'0000uz);
+            int map_flags = MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED_NOREPLACE
+                            | MAP_NORESERVE | MAP_GROWSDOWN | MAP_STACK;
 
+            int prot_flags = PROT_WRITE | PROT_READ;
+            // gcc's nested function extension requires executable stack
+#ifdef COMPILER_SUPPORTS_NESTED_FUNCTIONS
+            prot_flags |= PROT_EXEC;
+#endif
+
+            stack = find_avail_virtual_space_impl(
+                mem_end,
+                1024uz * 1024 * 1024 * 2, // 1024uz * 1024 * 1024 * 2 = 2GB
+                1024uz * 1024 * 1024,
+                prot_flags,
+                map_flags,
+                -1,
+                0);
+            mem_end = &*stack.end();
+        }
+
+        if (comm.rank() == 0) {
+            func_to_call_after_init = std::move(call_after_init);
+            auto* run_std_function  = +[] { func_to_call_after_init(); };
+
+            // now we set the rank 0's stack to the specified address
             ucontext_t target_context;
-            ucontext_t context_current;
+            ucontext_t current_context;
             getcontext(&target_context);
-            target_context.uc_stack.ss_sp = reinterpret_cast<void*>(
-                reinterpret_cast<size_t>(stack_bottom_ptr) - stack_len);
-            target_context.uc_stack.ss_size = stack_len;
-            target_context.uc_link          = &context_current;
-            makecontext(&target_context,
-                        reinterpret_cast<void (*)()>(virtual_main),
-                        2,
-                        argc,
-                        argv);
-            mpi_util::broadcast_tag(mpi_util::tag_enum::init);
-            swapcontext(&context_current, &target_context);
+            target_context.uc_stack.ss_sp   = stack.data();
+            target_context.uc_stack.ss_size = stack.size_bytes();
+            target_context.uc_link          = &current_context;
+            makecontext(&target_context, run_std_function, 0);
+            master::broadcast_tag(mpi_util::rpc_code::init);
 
-            mpi_util::broadcast_tag(mpi_util::tag_enum::finalize);
+            // a new thread is created to handle cross mmap calls.
+            // we can't let each thread to handle cross mmap calls by
+            // themselves since we need to communicate with other MPI rank,
+            // but most MPI implementations will malloc in the thread local
+            // heaps, which will try to mmap new memory area and cause
+            // infinitly recursive calls.
+            std::thread cross_node_mmap_thread{[] {
+                s_p_this_thread_should_be_proxied = false;
+
+                while (true) {
+                    std::unique_lock lock{cross_node_mmap_send_param_lock};
+                    cross_node_mmap_send_param_cv.wait(
+                        lock, [] { return cross_mmap_params.has_request; });
+                    if (cross_mmap_params.should_exit) {
+                        return;
+                    }
+                    auto mem =
+                        simple_parallel::master::find_avail_virtual_space(
+                            mem_end,
+                            cross_mmap_params.len,
+                            0x4000'0000'0000uz,
+                            cross_mmap_params.prot,
+                            cross_mmap_params.flags,
+                            cross_mmap_params.fd,
+                            cross_mmap_params.offset);
+
+                    mem_end = &*mem.end();
+
+                    cross_mmap_params.has_request = false;
+
+                    {
+                        std::lock_guard lock2{cross_node_mmap_result_lock};
+                        cross_mmap_result.addr     = mem.data();
+                        cross_mmap_result.returned = true;
+                    }
+                    cross_node_mmap_return_result_cv.notify_one();
+                }
+            }};
+
+
+            s_p_comm_rank = comm.rank();
+            // from now on, all threads which is spawned on rank0 will be
+            // proxyed by simple_parallel
+            //
+            // check
+            // src/mimalloc_for_simple_parallel/src/init.c:_mi_heap_init
+            // line 334
+
+            // a new thread is created as the "main" thread.
+            // for most openmp implementations, this makes sure the
+            // (potential) old (thread private) openmp thread pool is not
+            // used. this also makes sure all malloc operation of this
+            // thread is proxied. (some segment is mmaped earlier (for
+            // initialize purpose) and is stored in mimalloc's tld. they
+            // will be reused and cause issue)
+            std::thread t{
+                [&] { swapcontext(&current_context, &target_context); }};
+
+            t.join();
+            {
+                std::lock_guard lock2{cross_node_mmap_send_param_lock};
+                cross_mmap_params.should_exit = true;
+                cross_mmap_params.has_request = true;
+            }
+            cross_node_mmap_send_param_cv.notify_one();
+            cross_node_mmap_thread.join();
+
+            master::broadcast_tag(mpi_util::rpc_code::finalize);
 
         } else {
-            advance::worker();
+            worker::worker();
         }
     }
 

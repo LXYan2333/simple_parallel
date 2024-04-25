@@ -10,12 +10,13 @@
 #include <optional>
 #include <ratio>
 #include <simple_parallel/async_util.h>
+#include <simple_parallel/detail.h>
 #include <thread>
 #include <type_traits>
 
 namespace bmpi = boost::mpi;
 
-namespace simple_parallel::advance {
+namespace simple_parallel::detail {
     enum mpi_tag : int {
         client_request_task,
         server_send_task,
@@ -24,11 +25,12 @@ namespace simple_parallel::advance {
     };
 
     template <std::ranges::range T>
-    auto dynamic_schedule_server(bmpi::communicator& comm, T task_generator)
+    auto dynamic_schedule_server(bmpi::communicator& communicator,
+                                 T                   task_generator)
         -> simple_parallel::async_util::server_coroutine_handler {
 
         // server runs on rank 0
-        assert(comm.rank() == 0);
+        assert(communicator.rank() == 0);
 
         // used to `test()` async send result
         // the `test()` is necessary in boost mpi. see
@@ -44,11 +46,11 @@ namespace simple_parallel::advance {
                                   return request.test().has_value();
                               });
                 // if any client request a task
-                if (auto status = comm.iprobe(boost::mpi::any_source,
-                                              client_request_task)) {
-                    comm.recv(status->source(), client_request_task);
+                if (auto status = communicator.iprobe(boost::mpi::any_source,
+                                                      client_request_task)) {
+                    communicator.recv(status->source(), client_request_task);
                     // send task to it
-                    pending_send_requests.emplace_back(comm.isend(
+                    pending_send_requests.emplace_back(communicator.isend(
                         status->source(), server_send_task, std::move(task)));
                     // break the while loop
                     break;
@@ -69,10 +71,11 @@ namespace simple_parallel::advance {
 
         // tell all client that all tasks have beed generated
         std::vector<bmpi::request> pending_send_end_requests;
-        pending_send_end_requests.reserve(static_cast<size_t>(comm.size()));
-        for (int i = 0; i < comm.size(); i++) {
+        pending_send_end_requests.reserve(
+            static_cast<size_t>(communicator.size()));
+        for (int i = 0; i < communicator.size(); i++) {
             pending_send_end_requests.emplace_back(
-                comm.isend(i, all_task_generated));
+                communicator.isend(i, all_task_generated));
         }
         while (!pending_send_end_requests.empty()) {
             std::erase_if(pending_send_end_requests,
@@ -83,11 +86,11 @@ namespace simple_parallel::advance {
         }
 
         // make sure all client request end
-        int unfinished_rank_count = comm.size();
+        int unfinished_rank_count = communicator.size();
         while (unfinished_rank_count != 0) {
-            while (auto status =
-                       comm.iprobe(boost::mpi::any_source, client_finished)) {
-                comm.recv(status->source(), client_finished);
+            while (auto status = communicator.iprobe(boost::mpi::any_source,
+                                                     client_finished)) {
+                communicator.recv(status->source(), client_finished);
                 unfinished_rank_count--;
             }
             co_await std::suspend_always();
@@ -95,9 +98,9 @@ namespace simple_parallel::advance {
 
         // consume all additional task request so MPI can free the communication
         // buffer
-        while (auto status =
-                   comm.iprobe(boost::mpi::any_source, client_request_task)) {
-            comm.recv(status->source(), client_request_task);
+        while (auto status = communicator.iprobe(boost::mpi::any_source,
+                                                 client_request_task)) {
+            communicator.recv(status->source(), client_request_task);
         }
 
         // all job done
@@ -106,7 +109,7 @@ namespace simple_parallel::advance {
 
     template <typename T>
     auto dynamic_schedule_client(size_t              prefetch_count,
-                                 bmpi::communicator& comm)
+                                 bmpi::communicator& communicator)
         -> simple_parallel::async_util::client_coroutine_handler<T> {
 
         // used to `test()` async send result
@@ -117,23 +120,23 @@ namespace simple_parallel::advance {
         // make `prefetch_count` request to the server
         for (size_t i = 0; i < prefetch_count; i++) {
             pending_send_requests.emplace_back(
-                comm.isend(0, client_request_task));
+                communicator.isend(0, client_request_task));
         }
 
         // if any task is received and the server haven't send all task
-        while (!comm.iprobe(0, all_task_generated)
-               or comm.iprobe(0, server_send_task).has_value()) {
+        while (!communicator.iprobe(0, all_task_generated)
+               or communicator.iprobe(0, server_send_task).has_value()) {
             // remove all fullfilled async send request
             std::erase_if(pending_send_requests,
                           [](bmpi::request& request) -> bool {
                               return request.test().has_value();
                           });
             // if any task is received
-            if (comm.iprobe(0, server_send_task).has_value()) {
+            if (communicator.iprobe(0, server_send_task).has_value()) {
                 T task;
-                comm.recv(0, server_send_task, task);
+                communicator.recv(0, server_send_task, task);
                 pending_send_requests.emplace_back(
-                    comm.isend(0, client_request_task));
+                    communicator.isend(0, client_request_task));
                 // yield the task
                 co_yield std::optional{std::move(task)};
             } else {
@@ -141,7 +144,7 @@ namespace simple_parallel::advance {
                 co_await std::suspend_always();
             }
         }
-        comm.recv(0, all_task_generated);
+        communicator.recv(0, all_task_generated);
 
         // cancel all pending send request
         std::erase_if(pending_send_requests, [](bmpi::request& request) {
@@ -154,7 +157,7 @@ namespace simple_parallel::advance {
         }
 
         // tell server that this client has finished
-        auto req = comm.isend(0, client_finished);
+        auto req = communicator.isend(0, client_finished);
         while (!req.test().has_value()) {
             co_yield std::nullopt;
         }
@@ -207,11 +210,13 @@ namespace simple_parallel::advance {
         static_assert(std::is_same_v<task_type, U>);
 
         // a new communicator is created, dedicated for this generator
-        bmpi::communicator comm{MPI_COMM_WORLD, bmpi::comm_duplicate};
+        bmpi::communicator generator_comm{comm, bmpi::comm_duplicate};
 
         // the client runs on all ranks, the server only runs on rank 0
-        auto client = dynamic_schedule_client<task_type>(prefetch_count, comm);
-        auto server = dynamic_schedule_server(comm, std::move(generator));
+        auto client =
+            dynamic_schedule_client<task_type>(prefetch_count, generator_comm);
+        auto server =
+            dynamic_schedule_server(generator_comm, std::move(generator));
 
         bool first_run = true;
 
@@ -222,7 +227,7 @@ namespace simple_parallel::advance {
                 co_yield task.value();
             }
             // on rank 0
-            if (comm.rank() == 0) {
+            if (generator_comm.rank() == 0) {
                 // update the server
                 if (!server.handle.done()) {
                     if (first_run) [[unlikely]] {
@@ -243,4 +248,4 @@ namespace simple_parallel::advance {
             }
         }
     }
-} // namespace simple_parallel::advance
+} // namespace simple_parallel::detail

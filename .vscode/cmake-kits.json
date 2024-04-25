@@ -17,16 +17,17 @@
         "description": "Clang 17 with intel mpi"
     },
     {
-        "name": "Clang 17 with dafault mpi",
+        "name": "Clang 18 with dafault mpi",
         "compilers": {
-            "C": "/usr/bin/clang-17",
-            "CXX": "/usr/bin/clang++-17"
+            "C": "/usr/bin/clang-18",
+            "CXX": "/usr/bin/clang++-18"
         },
         "cmakeSettings": {
             "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
             "simple_parallel_ENABLE_USER_LINKER": "ON",
             "simple_parallel_WARNINGS_AS_ERRORS": "ON",
-            "simple_parallel_MPI_BIG_COUNT": "OFF"
+            "simple_parallel_MPI_BIG_COUNT": "OFF",
+            "cppcoro_DIR": "~/.local/lib/cppcoro/lib/cmake/cppcoro"
         },
         "description": "Clang 17 with default mpi"
     },
@@ -40,7 +41,8 @@
             "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
             "simple_parallel_ENABLE_USER_LINKER": "OFF",
             "simple_parallel_WARNINGS_AS_ERRORS": "ON",
-            "simple_parallel_MPI_BIG_COUNT": "OFF"
+            "simple_parallel_MPI_BIG_COUNT": "OFF",
+            "cppcoro_DIR": "~/.local/lib/cppcoro/lib/cmake/cppcoro"
         },
         "description": "gcc with default mpi"
     },

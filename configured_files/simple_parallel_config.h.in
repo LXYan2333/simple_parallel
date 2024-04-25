@@ -1,6 +1,9 @@
 #pragma once
+
 // clang-format off
-#define SIMPLE_PARALLEL_COMPILER_@CMAKE_C_COMPILER_ID@
+#cmakedefine COMPILER_SUPPORTS_BLOCKS
+
+#cmakedefine COMPILER_SUPPORTS_NESTED_FUNCTIONS
 
 #cmakedefine simple_parallel_MPI_BIG_COUNT
 // clang-format on
