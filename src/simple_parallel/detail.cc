@@ -98,31 +98,25 @@ namespace simple_parallel::detail {
             }
 
 
-                     void* mmap_result =
-                         mmap(try_ptr, length, prot, flags, fd, offset);
+            void* mmap_result = mmap(try_ptr, length, prot, flags, fd, offset);
 
-                     // whether mmap successfully on this process
-                     bool my_result = (mmap_result != MAP_FAILED);
+            // whether mmap successfully on this process
+            bool my_result = (mmap_result != MAP_FAILED);
 
-                     // whether all process mmap successfully
-                     bool reduced_result = false;
+            // whether all process mmap successfully
+            bool reduced_result = false;
 
-                     MPI_Allreduce(&my_result,
-                                   &reduced_result,
-                                   1,
-                                   MPI_C_BOOL,
-                                   MPI_LAND,
-                                   comm);
+            MPI_Allreduce(
+                &my_result, &reduced_result, 1, MPI_C_BOOL, MPI_LAND, comm);
 
-
-                     if (reduced_result) {
-                         // all MPI processes successfully found a free virtual
-                         // memory, exit loop
-                         {
-                             std::scoped_lock lock{mmaped_areas_lock};
-                             mmaped_areas.insert({try_ptr, length});
-                         }
-                         return {try_ptr, length};
+            if (reduced_result) {
+                // all MPI processes successfully found a free virtual
+                // memory, exit loop
+                {
+                    std::scoped_lock lock{mmaped_areas_lock};
+                    mmaped_areas.insert({try_ptr, length});
+                }
+                return {try_ptr, length};
             } else {
                 // some MPI processes found a free virtual memory while some
                 // are failed, we should unmap it
