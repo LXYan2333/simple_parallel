@@ -2,8 +2,6 @@
 
 #include <bit>
 #include <boost/mpi.hpp>
-#include <boost/mpi/collectives/all_reduce.hpp>
-#include <boost/mpi/environment.hpp>
 #include <cassert>
 #include <cstdarg>
 #include <cstdio>
