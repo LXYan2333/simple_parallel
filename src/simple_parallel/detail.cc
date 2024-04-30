@@ -103,6 +103,18 @@ namespace simple_parallel::detail {
             // whether mmap successfully on this process
             bool my_result = (mmap_result != MAP_FAILED);
 
+            // compatible with Linux kernel <= 4.17
+            // Document from `man mmap`:
+            // Note that older kernels which do not recognize the
+            // MAP_FIXED_NOREPLACE flag will typically (upon detecting a
+            // collision with a preexisting mapping) fall back to a “non-
+            // MAP_FIXED” type of behavior: they will return an address that is
+            // different from the requested address.
+            if (mmap_result != try_ptr && mmap_result != MAP_FAILED) {
+                my_result = false;
+                munmap(mmap_result, length);
+            }
+
             // whether all process mmap successfully
             bool reduced_result = false;
 
