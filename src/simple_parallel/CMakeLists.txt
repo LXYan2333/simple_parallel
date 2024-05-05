@@ -26,12 +26,12 @@ target_link_libraries(
 target_link_system_libraries(
     simple_parallel 
     PUBLIC  OpenMP::OpenMP_CXX
-            mimalloc
+            mimalloc-static
             MPI::MPI_C
             Boost::mpi
             cppcoro::cppcoro
             Microsoft.GSL::GSL)  
 
-install(TARGETS mimalloc
+install(TARGETS mimalloc-static
         EXPORT  simple_parallelTargets
         ARCHIVE DESTINATION lib/mimalloc_for_simple_parallel)
