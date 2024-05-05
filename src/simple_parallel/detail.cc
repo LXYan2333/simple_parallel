@@ -28,6 +28,11 @@
 
 #include <stdatomic.h>
 
+#ifndef _Atomic
+    #error                                                                     \
+        "Your C++ standard library is older than C++ 23 and doesn't provide compatibility macro such that _Atomic(T) is identical to std::atomic<T>. Check https:\/\/en.cppreference.com/w/cpp/atomic/atomic"
+#endif
+
 namespace bmpi = boost::mpi;
 
 namespace simple_parallel::detail {

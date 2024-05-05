@@ -17,6 +17,10 @@
 #endif
 #include <stdatomic.h>
 
+#ifndef _Atomic
+    #error                                                                     \
+        "Your C++ standard library is older than C++ 23 and doesn't provide compatibility macro such that _Atomic(T) is identical to std::atomic<T>. Check https:\/\/en.cppreference.com/w/cpp/atomic/atomic"
+#endif
 
 extern "C" __thread mi_heap_t* _mi_heap_default;
 extern "C" thread_local bool   s_p_should_proxy_mmap;
