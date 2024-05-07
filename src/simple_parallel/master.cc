@@ -98,7 +98,7 @@ namespace simple_parallel::master {
             return __builtin_frame_address(0);
         }
 
-        thread_local mi_heap_t* mpi_heap = nullptr;
+        __thread mi_heap_t* mpi_heap = nullptr;
     } // namespace
 
     __attribute__((noinline)) auto

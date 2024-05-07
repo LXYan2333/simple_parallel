@@ -12,7 +12,7 @@
 
 // if you have a thread that you wish not to be proxied by simple_parallel, set
 // this thread_local variable to false before you try to malloc/new anything.
-extern "C" thread_local bool s_p_this_thread_should_be_proxied;
+extern "C" __thread bool s_p_this_thread_should_be_proxied;
 
 namespace simple_parallel {
 

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <bit>
+#include <atomic>
 #include <boost/mpi/communicator.hpp>
 #include <cassert>
 #include <condition_variable>
@@ -12,19 +12,10 @@
 #include <span>
 #include <unordered_set>
 
-#ifdef __STDC_NO_ATOMICS__
-    #error "simple_parallel requires C11 atomics"
-#endif
-#include <stdatomic.h>
 
-#ifndef _Atomic
-    #error                                                                     \
-        "Your C++ standard library is older than C++ 23 and doesn't provide compatibility macro such that _Atomic(T) is identical to std::atomic<T>. Check https:\/\/en.cppreference.com/w/cpp/atomic/atomic"
-#endif
-
-extern "C" __thread mi_heap_t* _mi_heap_default;
-extern "C" thread_local bool   s_p_should_proxy_mmap;
-extern "C" atomic_int          s_p_comm_rank;
+extern __thread mi_heap_t* _mi_heap_default;
+extern __thread bool       s_p_should_proxy_mmap;
+extern std::atomic<int>    s_p_comm_rank;
 
 extern "C" void* (*simple_parallel_cross_node_heap_mmap)(
     void* addr, size_t len, int prot, int flags, int fd, off_t offset);
