@@ -77,10 +77,7 @@ namespace simple_parallel::master {
             if (block == nullptr) {
                 return true;
             }
-            if (std::bit_cast<size_t>(block) < 0x4000'0000'0000) {
-                std::cout << "block: " << block << "size: " << block_size
-                          << "\n";
-            };
+
             auto& mem_areas_to_send =
                 *static_cast<std::vector<mem_area>*>(mem_areas_to_send_ptr);
 
