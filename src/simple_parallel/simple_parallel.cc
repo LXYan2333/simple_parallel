@@ -128,7 +128,7 @@ namespace simple_parallel {
         // find a virtual memory space that is free on all MPI processes, which
         // will be used as stack later.
         {
-            mem_end       = std::bit_cast<void*>(0x4000'0000'0000uz);
+            mem_end       = std::bit_cast<void*>(0x1000'0000'0000uz);
             int map_flags = MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED_NOREPLACE
                             | MAP_NORESERVE | MAP_GROWSDOWN | MAP_STACK;
 
