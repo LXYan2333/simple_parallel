@@ -183,7 +183,7 @@ namespace simple_parallel {
                         simple_parallel::master::find_avail_virtual_space(
                             mem_end,
                             cross_mmap_params.len,
-                            0x4000'0000'0000uz,
+                            0x4'000'000'000uz, // 4GiB
                             cross_mmap_params.prot,
                             cross_mmap_params.flags,
                             cross_mmap_params.fd,
