@@ -4,11 +4,6 @@
 #include <simple_parallel/mpi_util.h>
 #include <stdio.h>
 
-extern "C" void (*simple_parallel_register_heap)(mi_heap_t* heap);
-
-extern "C" void (*simple_parallel_register_munmaped_areas)(void*  ptr,
-                                                           size_t size);
-
 namespace simple_parallel::master {
 
     auto broadcast_tag(mpi_util::rpc_code code) -> void;

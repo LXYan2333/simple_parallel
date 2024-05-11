@@ -22,6 +22,10 @@ target_link_libraries(
     PRIVATE $<BUILD_INTERFACE:simple_parallel::simple_parallel_options>
             $<BUILD_INTERFACE:simple_parallel::simple_parallel_warnings>)
 
+target_link_libraries(
+    mimalloc-static
+    PUBLIC  simple_parallel)
+
 
 target_link_system_libraries(
     simple_parallel 
@@ -31,7 +35,3 @@ target_link_system_libraries(
             Boost::mpi
             cppcoro::cppcoro
             Microsoft.GSL::GSL)  
-
-install(TARGETS mimalloc-static
-        EXPORT  simple_parallelTargets
-        ARCHIVE DESTINATION lib/mimalloc_for_simple_parallel)

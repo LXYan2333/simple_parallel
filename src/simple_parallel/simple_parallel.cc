@@ -65,10 +65,6 @@ namespace simple_parallel {
         comm      = {MPI_COMM_WORLD, bmpi::comm_duplicate};
         mmap_comm = {MPI_COMM_WORLD, bmpi::comm_duplicate};
 
-        simple_parallel_register_heap = master::register_heap;
-        simple_parallel_register_munmaped_areas =
-            master::register_munmaped_areas;
-
         if (comm.size() == 1) {
             // only one process, no need to do anything
             call_after_init();
