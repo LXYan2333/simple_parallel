@@ -2,7 +2,6 @@
 
 #include <simple_parallel/detail.h>
 #include <simple_parallel/mpi_util.h>
-#include <stdio.h>
 
 namespace simple_parallel::master {
 

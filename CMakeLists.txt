@@ -68,7 +68,7 @@ packageProject(
     # (optional) option to install only header files with matching pattern
     INCLUDE_HEADER_PATTERN "*.h"
     # semicolon separated list of the project's dependencies
-    DEPENDENCIES "MPI REQUIRED COMPONENTS C; Boost REQUIRED COMPONENTS mpi; OpenMP REQUIRED; cppcoro REQUIRED; Microsoft.GSL REQUIRED"
+    DEPENDENCIES "MPI REQUIRED COMPONENTS C; Boost REQUIRED COMPONENTS mpi container; OpenMP REQUIRED; cppcoro REQUIRED; Microsoft.GSL REQUIRED"
     # (optional) install your library with a namespace (Note: do NOT add extra '::')
     NAMESPACE simple_parallel
     # (optional) define the project's version compatibility, defaults to `AnyNewerVersion`

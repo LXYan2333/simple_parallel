@@ -11,7 +11,7 @@ function(simple_parallel_setup_dependencies)
     find_package(OpenMP REQUIRED)
 
     CPMAddPackage("gh:TheLartians/PackageProject.cmake@1.11.1")
-    find_package(Boost REQUIRED COMPONENTS mpi)
+    find_package(Boost REQUIRED COMPONENTS mpi container)
     find_package(Microsoft.GSL REQUIRED)
     find_package(cppcoro REQUIRED)
 
