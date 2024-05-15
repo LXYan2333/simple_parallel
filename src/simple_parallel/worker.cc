@@ -64,37 +64,36 @@ namespace simple_parallel::worker {
 
         while (true) {
 
-            if (!comm.iprobe(0, 0)) {
-                continue;
-            }
+            while (comm.iprobe(0, 0).has_value()) {
 
-            mpi_util::rpc_code code{};
-            comm.recv(0, code, code);
-            switch (code) {
-                case mpi_util::rpc_code::init: {
-                    break;
-                }
-                case mpi_util::rpc_code::finalize: {
-                    should_exit.store(true, std::memory_order_relaxed);
-                    goto exit_loop;
-                }
-                case mpi_util::rpc_code::run_std_function: {
+                mpi_util::rpc_code code{};
+                comm.recv(0, code, code);
+                switch (code) {
+                    case mpi_util::rpc_code::init: {
+                        break;
+                    }
+                    case mpi_util::rpc_code::finalize: {
+                        should_exit.store(true, std::memory_order_relaxed);
+                        goto exit_loop;
+                    }
+                    case mpi_util::rpc_code::run_std_function: {
 
-                    std::vector<mem_area> mem_areas;
-                    detail::sync_mem_areas(mem_areas);
+                        std::vector<mem_area> mem_areas;
+                        detail::sync_mem_areas(mem_areas);
 
-                    std::move_only_function<void()>* f_ptr{};
+                        std::move_only_function<void()>* f_ptr{};
 
-                    MPI_Bcast(&f_ptr, sizeof(void*), MPI_BYTE, 0, comm);
+                        MPI_Bcast(&f_ptr, sizeof(void*), MPI_BYTE, 0, comm);
 
 
-                    (*f_ptr)();
+                        (*f_ptr)();
 
-                    break;
-                }
-                default: {
-                    std::cerr << "Invalid tag received in worker!\n";
-                    std::terminate();
+                        break;
+                    }
+                    default: {
+                        std::cerr << "Invalid tag received in worker!\n";
+                        std::terminate();
+                    }
                 }
             }
 
