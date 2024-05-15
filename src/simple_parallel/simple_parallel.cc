@@ -66,9 +66,11 @@ namespace simple_parallel {
         mmap_comm = {MPI_COMM_WORLD, bmpi::comm_duplicate};
 
         if (comm.size() == 1) {
-            // only one process, no need to do anything
-            call_after_init();
-            return;
+            if (!get_env_var("SIMPLE_PARALLEL_DEBUG").has_value()) {
+                // only one process, no need to do anything
+                call_after_init();
+                return;
+            }
         }
 
         // check whether the current process is running with ASLR disabled
@@ -109,14 +111,13 @@ namespace simple_parallel {
         // and wait Enter.
         // this is for debug purpose. you can launch this program and attach
         // debugger to specified PID, then press Enter key to continue.
-        if (auto env_var = get_env_var("SIMPLE_PARALLEL_DEBUG")) {
-            if (env_var == "1") {
-                std::cout << "rank: " << comm.rank() << ", PID: " << getpid()
-                          << "\n";
-                if (comm.rank() == 0) {
-                    std::cout << "Press Enter to continue.\n";
-                    std::ignore = std::getchar();
-                }
+        if (get_env_var("SIMPLE_PARALLEL_DEBUG").has_value()) {
+            std::cout << "rank: " << comm.rank() << ", PID: " << getpid()
+                      << "\n";
+            comm.barrier();
+            if (comm.rank() == 0) {
+                std::cout << "Press Enter to continue.\n";
+                std::ignore = std::getchar();
             }
         }
 

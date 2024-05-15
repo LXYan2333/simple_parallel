@@ -155,14 +155,12 @@ namespace simple_parallel::master {
         std::lock_guard lock{cross_node_mmap_lock};
 
         if (cross_mmap_params.should_exit) {
-            if (auto env_var = get_env_var("SIMPLE_PARALLEL_DEBUG")) {
-                if (env_var == "1") {
-                    // clang-format off
-                    std::cerr << "Warning: the cross node mmap thread has exited, a local mmap will performed.\n";
-                    std::cerr << "rank:" << comm.rank() << ", address:" << addr << ", len:" << len << "\n";
-                    std::cerr << "if this message occurs at the end of the program, usually this is harmless.\n";
-                    // clang-format on
-                }
+            if (get_env_var("SIMPLE_PARALLEL_DEBUG").has_value()) {
+                // clang-format off
+                std::cerr << "Warning: the cross node mmap thread has exited, a local mmap will performed.\n";
+                std::cerr << "rank:" << comm.rank() << ", address:" << addr << ", len:" << len << "\n";
+                std::cerr << "if this message occurs at the end of the program, usually this is harmless.\n";
+                // clang-format on
             }
             return mmap(addr, len, prot, flags, fd, offset);
         }

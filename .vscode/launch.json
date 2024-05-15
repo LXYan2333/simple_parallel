@@ -76,7 +76,10 @@
             "name": "Launch_for_c",
             "program": "${workspaceFolder}/build/src/example_for_c/simple_parallel_example_for_c",
             "args": [],
-            "cwd": "${workspaceFolder}"
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "SIMPLE_PARALLEL_DEBUG": "1"
+            }
         },
         {
             "type": "lldb",
