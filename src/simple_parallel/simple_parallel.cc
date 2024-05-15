@@ -212,19 +212,23 @@ namespace simple_parallel {
             // for most openmp implementations, this makes sure the
             // (potential) old (thread private) openmp thread pool is not
             // used. this also makes sure all malloc operation of this
-            // thread is proxied. (some segment is mmaped earlier (for
-            // initialize purpose) and is stored in mimalloc's tld. they
+            // thread is proxied. (some segments and pages is mmaped earlier
+            // (for initialize purpose) and is stored in mimalloc's tld. they
             // will be reused and cause issue)
             std::thread t{
                 [&] { swapcontext(&current_context, &target_context); }};
 
             t.join();
+
             {
-                std::lock_guard lock2{cross_node_mmap_send_param_lock};
-                cross_mmap_params.should_exit = true;
-                cross_mmap_params.has_request = true;
+                std::lock_guard lock{cross_node_mmap_lock};
+                {
+                    std::lock_guard lock2{cross_node_mmap_send_param_lock};
+                    cross_mmap_params.should_exit = true;
+                    cross_mmap_params.has_request = true;
+                }
+                cross_node_mmap_send_param_cv.notify_one();
             }
-            cross_node_mmap_send_param_cv.notify_one();
             cross_node_mmap_thread.join();
 
             master::broadcast_tag(mpi_util::rpc_code::finalize);
