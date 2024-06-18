@@ -1,6 +1,5 @@
 #include <simple_parallel/master.h>
 
-#include <bit>
 #include <boost/mpi.hpp>
 #include <cassert>
 #include <cstddef>
@@ -66,7 +65,6 @@ namespace simple_parallel::master {
             begin_try_ptr, length, increase_len, prot, flags, fd, offset);
     };
 
-
     namespace {
 
         auto visit_block(const mi_heap_t* /*unused*/,
@@ -77,6 +75,8 @@ namespace simple_parallel::master {
             if (block == nullptr) {
                 return true;
             }
+
+            assert(std::bit_cast<size_t>(block) < 0x1000'0000'0000);
 
             auto& mem_areas_to_send =
                 *static_cast<std::vector<mem_area>*>(mem_areas_to_send_ptr);
