@@ -1,9 +1,11 @@
 #include <simple_parallel/worker.h>
 
+#include <cstddef>
 #include <atomic>
 #include <boost/mpi.hpp>
 #include <simple_parallel/detail.h>
 #include <simple_parallel/mpi_util.h>
+#include <sys/mman.h>
 #include <thread>
 #include <unistd.h>
 
@@ -87,6 +89,12 @@ namespace simple_parallel::worker {
 
 
                         (*f_ptr)();
+
+                        // free all mmaped area
+                        std::scoped_lock lock{mmaped_areas_lock};
+                        for (const auto i : mmaped_areas) {
+                            madvise(i.data(), i.size_bytes(), MADV_DONTNEED);
+                        }
 
                         break;
                     }
