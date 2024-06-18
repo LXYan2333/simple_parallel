@@ -87,7 +87,7 @@ namespace simple_parallel::detail {
             // if the memory address is higher than 0xFFFF'FFFF'FFFFuz
             // (which is the highest memory address in x86_64), abort
             size_t end = std::bit_cast<size_t>(try_ptr) + length;
-            if (end > 0xFFFF'FFFF'FFFFuz) {
+            if (end > 0x7FFF'FFFF'FFFFuz) {
                 comm.abort(111);
             }
 
