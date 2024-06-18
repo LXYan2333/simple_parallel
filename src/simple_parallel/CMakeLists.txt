@@ -2,14 +2,6 @@ aux_source_directory(. source)
 add_library(simple_parallel ${source})
 add_library(simple_parallel::simple_parallel ALIAS simple_parallel)
 
-try_compile(
-    LIBC_SUPPORTS_MAP_FIXED_NOREPLACE
-    ${CMAKE_CURRENT_BINARY_DIR}
-    ${PROJECT_SOURCE_DIR}/src/try_compile/map_fixed_noreplace.c)
-if(NOT LIBC_SUPPORTS_MAP_FIXED_NOREPLACE)
-    message(FATAL_ERROR "Your libc does not support MAP_FIXED_NOREPLACE as mmap parameter. Please use a newer libc (e.g. glibc 2.29+) which supports this feature.")
-endif()
-
 target_include_directories(
     simple_parallel 
     PRIVATE "${CMAKE_BINARY_DIR}/configured_files/include"

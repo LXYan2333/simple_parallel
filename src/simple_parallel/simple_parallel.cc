@@ -126,8 +126,8 @@ namespace simple_parallel {
         // will be used as stack later.
         {
             mem_end       = std::bit_cast<void*>(0x1000'0000'0000uz);
-            int map_flags = MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED_NOREPLACE
-                            | MAP_NORESERVE | MAP_GROWSDOWN | MAP_STACK;
+            int map_flags = MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE
+                            | MAP_GROWSDOWN | MAP_STACK;
 
             int prot_flags = PROT_WRITE | PROT_READ;
             // gcc's nested function extension requires executable stack

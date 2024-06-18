@@ -7,7 +7,6 @@
 #include <condition_variable>
 #include <cstddef>
 #include <dlfcn.h>
-#include <functional>
 #include <gsl/util>
 #include <internal_use_only/simple_parallel_config.h>
 #include <limits>
@@ -15,7 +14,6 @@
 #include <mpi.h>
 #include <optional>
 #include <simple_parallel/mpi_util.h>
-#include <stack>
 #include <string_view>
 #include <sys/mman.h>
 #include <sys/types.h>
@@ -80,8 +78,6 @@ namespace simple_parallel::detail {
 
         auto* try_ptr = static_cast<std::byte*>(begin_try_ptr);
 
-        flags |= MAP_FIXED_NOREPLACE;
-
         while (true) {
 
             // if the memory address is higher than 0xFFFF'FFFF'FFFFuz
@@ -95,17 +91,9 @@ namespace simple_parallel::detail {
             void* mmap_result = mmap(try_ptr, length, prot, flags, fd, offset);
 
             // whether mmap successfully on this process
-            bool my_result = (mmap_result != MAP_FAILED);
+            bool my_result = mmap_result == try_ptr;
 
-            // compatible with Linux kernel <= 4.17
-            // Document from `man mmap`:
-            // Note that older kernels which do not recognize the
-            // MAP_FIXED_NOREPLACE flag will typically (upon detecting a
-            // collision with a preexisting mapping) fall back to a “non-
-            // MAP_FIXED” type of behavior: they will return an address that is
-            // different from the requested address.
-            if (mmap_result != try_ptr && mmap_result != MAP_FAILED) {
-                my_result = false;
+            if (!my_result) {
                 munmap(mmap_result, length);
             }
 
@@ -116,8 +104,8 @@ namespace simple_parallel::detail {
                 &my_result, &reduced_result, 1, MPI_C_BOOL, MPI_LAND, comm);
 
             if (reduced_result) {
-                // all MPI processes successfully found a free virtual
-                // memory, exit loop
+                // all MPI processes successfully found a free virtual memory,
+                // exit loop
                 {
                     std::scoped_lock lock{mmaped_areas_lock};
                     mmaped_areas.insert({try_ptr, length});
