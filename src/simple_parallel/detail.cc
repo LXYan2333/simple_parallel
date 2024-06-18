@@ -67,13 +67,13 @@ namespace simple_parallel::detail {
         }
     }
 
-    auto find_avail_virtual_space_impl(void*  begin_try_ptr,
-                                       size_t length,
-                                       size_t increase_len,
-                                       int    prot,
-                                       int    flags,
-                                       int    fd,
-                                       off_t  offset) -> mem_area {
+    auto find_avail_virtual_space_impl(void*          begin_try_ptr,
+                                       size_t         length,
+                                       std::ptrdiff_t increase_len,
+                                       int            prot,
+                                       int            flags,
+                                       int            fd,
+                                       off_t          offset) -> mem_area {
         assert(begin_try_ptr != nullptr);
         assert(length > 0);
         assert(increase_len > 0);

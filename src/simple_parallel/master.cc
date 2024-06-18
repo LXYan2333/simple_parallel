@@ -39,13 +39,13 @@ namespace simple_parallel::master {
     // address is usually more than enough, this might be ok for most cases.
     std::stack<mem_area> munmaped_areas{};
 
-    auto find_avail_virtual_space(void*  begin_try_ptr,
-                                  size_t length,
-                                  size_t increase_len,
-                                  int    prot,
-                                  int    flags,
-                                  int    fd,
-                                  off_t  offset) -> mem_area {
+    auto find_avail_virtual_space(void*          begin_try_ptr,
+                                  size_t         length,
+                                  std::ptrdiff_t increase_len,
+                                  int            prot,
+                                  int            flags,
+                                  int            fd,
+                                  off_t          offset) -> mem_area {
         assert(comm.rank() == 0);
 
         static_assert(bmpi::is_mpi_datatype<size_t>());

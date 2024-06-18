@@ -106,13 +106,13 @@ namespace simple_parallel::detail {
 
     auto get_env_var(const char* key) -> std::optional<const std::string_view>;
 
-    auto find_avail_virtual_space_impl(void*  begin_try_ptr,
-                                       size_t length,
-                                       size_t increase_len,
-                                       int    prot,
-                                       int    flags,
-                                       int    fd,
-                                       off_t  offset) -> mem_area;
+    auto find_avail_virtual_space_impl(void*          begin_try_ptr,
+                                       size_t         length,
+                                       std::ptrdiff_t increase_len,
+                                       int            prot,
+                                       int            flags,
+                                       int            fd,
+                                       off_t          offset) -> mem_area;
 
     auto sync_mem_areas(std::vector<mem_area>& mem_areas) -> void;
 

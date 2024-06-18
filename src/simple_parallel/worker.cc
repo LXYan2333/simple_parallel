@@ -29,13 +29,13 @@ namespace simple_parallel::worker {
                 while (auto message = mmap_comm.iprobe(0, 0)) {
                     mmap_comm.recv(0, 0);
 
-                    void*  begin_try_ptr{};
-                    size_t length{};
-                    size_t increase_len{};
-                    int    prot{};
-                    int    flags{};
-                    int    fd{};
-                    off_t  offset{};
+                    void*          begin_try_ptr{};
+                    size_t         length{};
+                    std::ptrdiff_t increase_len{};
+                    int            prot{};
+                    int            flags{};
+                    int            fd{};
+                    off_t          offset{};
 
                     static_assert(bmpi::is_mpi_datatype<size_t>());
 
