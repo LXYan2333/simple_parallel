@@ -5,14 +5,15 @@
 #include <functional>
 #include <mpi.h>
 #include <simple_parallel/detail.h>
-#include <simple_parallel/dynamic_schedule.h>
 #include <simple_parallel/master.h>
 #include <simple_parallel/mpi_util.h>
 #include <type_traits>
 
 // if you have a thread that you wish not to be proxied by simple_parallel, set
 // this thread_local variable to false before you try to malloc/new anything.
-extern "C" __thread bool s_p_this_thread_should_be_proxied;
+extern __thread bool s_p_this_thread_should_be_proxied;
+
+#include <simple_parallel/dynamic_schedule.h>
 
 namespace simple_parallel {
 

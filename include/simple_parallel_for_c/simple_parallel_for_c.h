@@ -13,15 +13,21 @@ extern "C" {
 
     void simple_parallel_run_invocable(void* invocable, bool parallel_run);
 
+    extern MPI_Comm parallel_section_comm;
+    extern MPI_Comm parallel_section_master_only_comm;
+
 #ifdef __cplusplus
 }
 #endif
 
+// clang-format off
 #define SIMPLE_PARALLEL_C_BEGIN(_parallel_run)                                 \
     {                                                                          \
         int _s_p_mpi_size;                                                     \
         MPI_Comm_size(MPI_COMM_WORLD, &_s_p_mpi_size);                         \
         const bool simple_parallel_run = _s_p_mpi_size != 1 && (_parallel_run);\
+        MPI_Comm s_p_comm = simple_parallel_run ? parallel_section_comm        \
+                                           : parallel_section_master_only_comm;\
         SIMPLE_PARALLEL_LAMBDA(simple_parallel_lambda_tag, void) {             \
             int s_p_start_index;
 
@@ -30,3 +36,4 @@ extern "C" {
         simple_parallel_run_invocable(&simple_parallel_lambda_tag,             \
                                    simple_parallel_run);                       \
     };
+// clang-format on

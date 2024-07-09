@@ -1,4 +1,3 @@
-#include <mutex>
 #include <simple_parallel/detail.h>
 
 #include <bit>
@@ -12,6 +11,7 @@
 #include <limits>
 #include <mimalloc.h>
 #include <mpi.h>
+#include <mutex>
 #include <optional>
 #include <simple_parallel/mpi_util.h>
 #include <string_view>
@@ -21,6 +21,10 @@
 #include <vector>
 
 namespace bmpi = boost::mpi;
+
+MPI_Comm parallel_section_comm;
+
+MPI_Comm parallel_section_master_only_comm;
 
 namespace simple_parallel::detail {
 
@@ -38,7 +42,6 @@ namespace simple_parallel::detail {
     bmpi::communicator comm;
 
     bmpi::communicator mmap_comm;
-
 
     std::mutex cross_node_mmap_lock;
 

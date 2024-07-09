@@ -5,6 +5,23 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+struct state {
+    int begin;
+    int end;
+    int current;
+};
+
+bool scheduler_func(void* state, void* task_buffer) {
+    struct state* s = (struct state*)state;
+    if (s->current < s->end) {
+        // printf("Task: %d\n", s->current);
+        *(int*)task_buffer = s->current;
+        s->current++;
+        return true;
+    }
+    return false;
+}
+
 int main() {
     int abc = 5;
 
@@ -13,58 +30,39 @@ int main() {
 
     SIMPLE_PARALLEL_C_BEGIN(true)
 
-#pragma omp parallel
-    {
-
-        int begin, end;
         int my_rank, comm_size;
         MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
         MPI_Comm_size(MPI_COMM_WORLD, &comm_size);
-
-        int count = 0;
-        // #pragma omp masked
-        //         { simple_parallel_omp_generator_set(0, 20, 2, 1,
-        //         simple_parallel_run); }
-
-        //         bool should_break = false;
-
-        //         while (true) {
-        // #pragma omp critical
-        //             {
-        //                 should_break = simple_parallel_omp_generator_done();
-        //                 if (!should_break) {
-        //                     simple_parallel_omp_generator_next(&begin, &end);
-        //                 }
-        //             }
-        //             if (should_break) {
-        //                 break;
-        //             }
-#pragma omp masked
+        int all_count = 0;
+#pragma omp parallel
         {
-            simple_parallel_omp_generator_set(
-                0, 20000, 1, 8, 2, simple_parallel_run);
-        }
+            int* buffer = NULL;
+
+            int count = 0;
+
+            static struct state s;
+#pragma omp masked
+            {
+                s.begin   = 0;
+                s.end     = 20;
+                s.current = 0;
+            }
+            S_P_PARALLEL_C_DYNAMIC_SCHEDULE_BEGIN(
+                s_p_comm, &buffer, scheduler_func, &s)
+            printf("Rank %d: %d\n", my_rank, *buffer);
+            count += *buffer;
+            S_P_PARALLEL_C_DYNAMIC_SCHEDULE_END
 #pragma omp barrier
-        bool _s_p_should_break = false;
-        while (true) {
 #pragma omp critical
             {
-                _s_p_should_break = simple_parallel_omp_generator_done();
-                if (!_s_p_should_break) {
-                    simple_parallel_omp_generator_next(&begin, &end);
-                }
+                all_count += count;
             }
-            if (_s_p_should_break) {
-                break;
-            }
-            printf("begin: %d, end: %d, rank:%d, size:%d \n",
-                   begin,
-                   end,
-                   my_rank,
-                   comm_size);
-            count += abc;
-            count += def[0];
+#pragma omp barrier
+#pragma omp masked
+            { printf("Rank %d: All count is %d\n", my_rank, all_count); }
         }
-    }
-    SIMPLE_PARALLEL_C_END
+
+
+        SIMPLE_PARALLEL_C_END
+        return 0;
 }

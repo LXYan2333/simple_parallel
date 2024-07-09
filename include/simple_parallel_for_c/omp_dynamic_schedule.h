@@ -7,53 +7,75 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+    typedef struct dynamic_schedule_context dynamic_schedule_context;
+    typedef struct generator_context        generator_context;
 
-    void simple_parallel_omp_generator_set(int    begin,
-                                           int    end,
-                                           int    grain_size,
-                                           int    processor,
-                                           size_t prefetch_count,
-                                           bool   parallel_run);
+    size_t dynamic_schedule_context_size();
 
-    bool simple_parallel_omp_generator_done();
+    void construct_dynamic_schedule_context(
+        dynamic_schedule_context* dynamic_schedule_context_buffer_ptr,
+        bool (*scheduler_func)(void* state, void* task_buffer),
+        void*    state,
+        size_t   prefetch_count,
+        MPI_Comm comm);
 
-    void simple_parallel_omp_generator_next(int* begin, int* end);
+
+    void begin_schedule(
+        dynamic_schedule_context* dynamic_schedule_context_buffer_ptr);
+
+    void destruct_dynamic_schedule_context(
+        dynamic_schedule_context* dynamic_schedule_context_buffer_ptr);
+    size_t thread_generator_context_buffer_size();
+
+    void construct_thread_task_generator(
+        generator_context*        generator_context_buffer_ptr,
+        dynamic_schedule_context* dynamic_schedule_context_buffer_ptr,
+        void**                    buffer_ptr);
+
+    void thread_generator_next(generator_context* generator_context_buffer_ptr,
+                               void**             buffer_ptr);
+
+    bool thread_generator_end(generator_context* generator_context_buffer_ptr);
+
+    void destruct_thread_task_generator(
+        generator_context* generator_context_buffer_ptr);
+
 
 #ifdef __cplusplus
 }
 #endif
 
+
 // clang-format off
-#define SIMPLE_PARALLEL_C_OMP_DYNAMIC_SCHEDULE_BEGIN(_begin,                   \
-                                                     _end,                     \
-                                                     _grain_size,              \
-                                                     _processor,               \
-                                                     _prefetch_count,          \
-                                                     simple_parallel_run,      \
-                                                     _begin_var,               \
-                                                     _end_var)                 \
+#define S_P_PARALLEL_C_DYNAMIC_SCHEDULE_BEGIN(                                 \
+    s_p_communicator, task_buffer, scheduler_func, scheduler_state)            \
+    static dynamic_schedule_context* s_p_dynamic_schedule_context;             \
+    generator_context*              s_p_gen_context;                           \
     _Pragma("omp masked")                                                      \
     {                                                                          \
-        simple_parallel_omp_generator_set(_begin,                              \
-                                          _end,                                \
-                                          _grain_size,                         \
-                                          _processor,                          \
-                                          _prefetch_count,                     \
-                                          simple_parallel_run);                \
+        s_p_dynamic_schedule_context =                                         \
+            malloc(dynamic_schedule_context_size());                           \
+        construct_dynamic_schedule_context(s_p_dynamic_schedule_context,       \
+                                           scheduler_func,                     \
+                                           scheduler_state,                    \
+                                           80,                                 \
+                                           s_p_communicator);                  \
+        begin_schedule(s_p_dynamic_schedule_context);                          \
     }                                                                          \
     _Pragma("omp barrier")                                                     \
-    bool _s_p_should_break = false;                                            \
-    while (true) {                                                             \
-        _Pragma("omp critical")                                                \
-        {                                                                      \
-            _s_p_should_break = simple_parallel_omp_generator_done();          \
-            if (!_s_p_should_break) {                                          \
-                simple_parallel_omp_generator_next(&_begin_var, &_end_var);    \
-            }                                                                  \
-        }                                                                      \
-        if (_s_p_should_break) {                                               \
-            break;                                                             \
-        }
+    s_p_gen_context = malloc(thread_generator_context_buffer_size());          \
+    for (construct_thread_task_generator(                                      \
+             s_p_gen_context, s_p_dynamic_schedule_context, task_buffer);      \
+         !thread_generator_end(s_p_gen_context);                               \
+         thread_generator_next(s_p_gen_context, task_buffer)) {
 
-#define SIMPLE_PARALLEL_C_OMP_DYNAMIC_SCHEDULE_END                             \
+#define S_P_PARALLEL_C_DYNAMIC_SCHEDULE_END                                    \
+    }                                                                          \
+    destruct_thread_task_generator(s_p_gen_context);                           \
+    free(s_p_gen_context);                                                     \
+    _Pragma("omp barrier")                                                     \
+    _Pragma("omp masked") {                                                    \
+        destruct_dynamic_schedule_context(s_p_dynamic_schedule_context);       \
+        free(s_p_dynamic_schedule_context);                                    \
     }
+// clang-format on

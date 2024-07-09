@@ -1,65 +1,104 @@
+#include <array>
+#include <boost/mpi/communicator.hpp>
 #include <cassert>
 #include <cppcoro/generator.hpp>
 #include <cstddef>
+#include <mpi.h>
 #include <simple_parallel/dynamic_schedule.h>
 
 #include <simple_parallel_for_c/omp_dynamic_schedule.h>
+#include <utility>
+
+using task_buffer_t = std::array<char, 16>;
+using generator_t   = cppcoro::generator<task_buffer_t>;
+
+struct dynamic_schedule_context {
+    simple_parallel::detail::dynamic_schedule<generator_t> scheduler;
+};
+
+struct generator_context {
+    generator_t                                   generator;
+    decltype(std::declval<generator_t>().begin()) begin;
+    decltype(std::declval<generator_t>().end())   end;
+};
 
 namespace {
-    cppcoro::generator<std::pair<int, int>> simple_generator_for_c;
 
-    decltype(simple_generator_for_c.begin()) iter_begin;
-    decltype(simple_generator_for_c.end())   iter_end;
+    auto get_generator(bool (*scheduler_func)(void* state, void* task_buffer),
+                       void* state) -> generator_t {
+        task_buffer_t task_buffer;
+        while (scheduler_func(state, task_buffer.data())) {
+            co_yield task_buffer;
+        }
+    }
+
 } // namespace
 
 extern "C" {
 
-    auto simple_parallel_omp_generator_set(int    begin,
-                                           int    end,
-                                           int    grain_size,
-                                           int    processor,
-                                           size_t prefetch_count,
-                                           bool   parallel_run) -> void {
-        assert(grain_size > 0);
 
-        auto gen = [](int _begin, int _end, int _grain_size, int _processor)
-            -> cppcoro::generator<std::pair<int, int>> {
-            int unused_iter = _end - _begin;
-            while (unused_iter > 0) {
-                int next_schedule = (unused_iter - 1) / _processor + 1;
-
-                // next_schedule should not be less than grain_size
-                next_schedule = std::max(next_schedule, _grain_size);
-
-                // next_schedule should not be greater than unused_iter
-                next_schedule = std::min(next_schedule, unused_iter);
-
-                co_yield std::make_pair(_begin, _begin + next_schedule);
-                _begin      += next_schedule;
-                unused_iter -= next_schedule;
-            }
-        }(begin, end, grain_size, processor);
-
-        if (parallel_run) {
-            simple_generator_for_c =
-                simple_parallel::detail::dynamic_schedule<std::pair<int, int>>(
-                    prefetch_count, std::move(gen));
-        } else {
-            simple_generator_for_c = std::move(gen);
-        }
-
-        iter_begin = simple_generator_for_c.begin();
-        iter_end   = simple_generator_for_c.end();
+    size_t dynamic_schedule_context_size() {
+        return sizeof(struct dynamic_schedule_context);
     }
 
-    auto simple_parallel_omp_generator_done() -> bool {
-        return iter_begin == iter_end;
+    void construct_dynamic_schedule_context(
+        dynamic_schedule_context* dynamic_schedule_context_buffer_ptr,
+        bool (*scheduler_func)(void* state, void* task_buffer),
+        void*    state,
+        size_t   prefetch_count,
+        MPI_Comm comm) {
+        bmpi::communicator bmpi_comm{comm, bmpi::comm_duplicate};
+        simple_parallel::detail::dynamic_schedule<generator_t> scheduler{
+            {bmpi_comm, bmpi::comm_attach},
+            get_generator(scheduler_func, state),
+            prefetch_count
+        };
+
+
+        new (dynamic_schedule_context_buffer_ptr)(
+            struct dynamic_schedule_context)(std::move(scheduler));
     }
 
-    auto simple_parallel_omp_generator_next(int* begin, int* end) -> void {
-        *begin = iter_begin->first;
-        *end   = iter_begin->second;
+    void begin_schedule(
+        dynamic_schedule_context* dynamic_schedule_context_buffer_ptr) {
+        dynamic_schedule_context_buffer_ptr->scheduler.schedule();
+    }
 
-        ++iter_begin;
+    void destruct_dynamic_schedule_context(
+        dynamic_schedule_context* dynamic_schedule_context_buffer_ptr) {
+        dynamic_schedule_context_buffer_ptr->~dynamic_schedule_context();
+    }
+
+    size_t thread_generator_context_buffer_size() {
+        return sizeof(generator_context);
+    }
+
+    void construct_thread_task_generator(
+        generator_context*        generator_context_buffer_ptr,
+        dynamic_schedule_context* dynamic_schedule_context_buffer_ptr,
+        void**                    buffer_ptr) {
+        auto generator = dynamic_schedule_context_buffer_ptr->scheduler.gen(
+            dynamic_schedule_context_buffer_ptr->scheduler);
+        auto begin = generator.begin();
+        auto end   = generator.end();
+        new (generator_context_buffer_ptr)(generator_context)(
+            std::move(generator), std::move(begin), std::move(end));
+        *buffer_ptr = generator_context_buffer_ptr->begin->data();
+    }
+
+    void thread_generator_next(generator_context* generator_context_buffer_ptr,
+                               void**             buffer_ptr) {
+        ++generator_context_buffer_ptr->begin;
+        *buffer_ptr = generator_context_buffer_ptr->begin->data();
+    }
+
+    bool thread_generator_end(generator_context* generator_context_buffer_ptr) {
+        return generator_context_buffer_ptr->begin
+               == generator_context_buffer_ptr->end;
+    }
+
+    void destruct_thread_task_generator(
+        generator_context* generator_context_buffer_ptr) {
+        generator_context_buffer_ptr->~generator_context();
     }
 }

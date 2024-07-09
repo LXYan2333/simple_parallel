@@ -76,7 +76,7 @@ namespace simple_parallel::master {
                 return true;
             }
 
-            assert(std::bit_cast<size_t>(block) < 0x1000'0000'0000);
+            assert(std::bit_cast<size_t>(block) > 0x1000'0000'0000);
 
             auto& mem_areas_to_send =
                 *static_cast<std::vector<mem_area>*>(mem_areas_to_send_ptr);
