@@ -65,8 +65,6 @@ namespace simple_parallel {
         comm      = {MPI_COMM_WORLD, bmpi::comm_duplicate};
         mmap_comm = {MPI_COMM_WORLD, bmpi::comm_duplicate};
 
-
-        MPI_Comm_dup(MPI_COMM_WORLD, &parallel_section_comm);
         if (comm.rank() == 0) {
             MPI_Comm_split(
                 MPI_COMM_WORLD, 0, 0, &parallel_section_master_only_comm);
@@ -247,7 +245,6 @@ namespace simple_parallel {
             worker::worker();
         }
 
-        MPI_Comm_free(&parallel_section_comm);
         MPI_Comm_free(&parallel_section_master_only_comm);
     }
 

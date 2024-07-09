@@ -26,10 +26,9 @@ extern "C" {
         int _s_p_mpi_size;                                                     \
         MPI_Comm_size(MPI_COMM_WORLD, &_s_p_mpi_size);                         \
         const bool simple_parallel_run = _s_p_mpi_size != 1 && (_parallel_run);\
-        MPI_Comm s_p_comm = simple_parallel_run ? parallel_section_comm        \
+        MPI_Comm s_p_comm = simple_parallel_run ? MPI_COMM_WORLD               \
                                            : parallel_section_master_only_comm;\
-        SIMPLE_PARALLEL_LAMBDA(simple_parallel_lambda_tag, void) {             \
-            int s_p_start_index;
+        SIMPLE_PARALLEL_LAMBDA(simple_parallel_lambda_tag, void) {
 
 #define SIMPLE_PARALLEL_C_END                                                  \
         };                                                                     \

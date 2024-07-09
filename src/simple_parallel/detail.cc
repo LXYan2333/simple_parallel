@@ -22,8 +22,6 @@
 
 namespace bmpi = boost::mpi;
 
-MPI_Comm parallel_section_comm;
-
 MPI_Comm parallel_section_master_only_comm;
 
 namespace simple_parallel::detail {
