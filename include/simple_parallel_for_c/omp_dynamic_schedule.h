@@ -1,5 +1,6 @@
 #pragma once
 
+#include <mpi.h>
 #include <simple_parallel_for_c/lambda.h>
 #include <simple_parallel_for_c/simple_parallel_for_c.h>
 #include <stddef.h>
@@ -39,6 +40,23 @@ extern "C" {
 
     void destruct_thread_task_generator(
         generator_context* generator_context_buffer_ptr);
+
+    bool guided_self_scheduler(void* state, void* task_buffer);
+
+    struct gss_state {
+        size_t begin;
+        size_t end;
+        size_t process_count;
+        size_t grain_size;
+    };
+
+    bool liner_scheduler(void* state, void* task_buffer);
+
+    struct liner_scheduler_state {
+        size_t begin;
+        size_t end;
+        size_t grain_size;
+    };
 
 
 #ifdef __cplusplus

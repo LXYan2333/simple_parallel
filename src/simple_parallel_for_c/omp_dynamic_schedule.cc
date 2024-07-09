@@ -1,3 +1,5 @@
+#include <simple_parallel_for_c/omp_dynamic_schedule.h>
+
 #include <array>
 #include <boost/mpi/communicator.hpp>
 #include <cassert>
@@ -5,11 +7,9 @@
 #include <cstddef>
 #include <mpi.h>
 #include <simple_parallel/dynamic_schedule.h>
-
-#include <simple_parallel_for_c/omp_dynamic_schedule.h>
 #include <utility>
 
-using task_buffer_t = std::array<char, 16>;
+using task_buffer_t = std::array<char, 64>;
 using generator_t   = cppcoro::generator<task_buffer_t>;
 
 struct dynamic_schedule_context {
@@ -101,4 +101,47 @@ extern "C" {
         generator_context* generator_context_buffer_ptr) {
         generator_context_buffer_ptr->~generator_context();
     }
+
+    bool guided_self_scheduler(void* state, void* task_buffer) {
+        auto* s    = static_cast<struct gss_state*>(state);
+        auto* task = static_cast<size_t*>(task_buffer);
+
+        size_t unused_num = s->end - s->begin;
+
+        if (s->begin < s->end) {
+            size_t next_schedule = (unused_num - 1) / s->process_count + 1;
+
+            // next_schedule should not be less than grain_size
+            next_schedule = std::max(next_schedule, s->grain_size);
+
+            // next_schedule should not be greater than unused_num
+            next_schedule = std::min(next_schedule, unused_num);
+
+            task[0] = s->begin;
+            task[1] = s->begin + next_schedule;
+
+            s->begin += next_schedule;
+            return true;
+        }
+        return false;
+    };
+
+    bool liner_scheduler(void* state, void* task_buffer) {
+        auto* s    = static_cast<struct liner_scheduler_state*>(state);
+        auto* task = static_cast<size_t*>(task_buffer);
+
+        if (s->begin < s->end) {
+            size_t next_schedule = s->grain_size;
+
+            // next_schedule should not be greater than unused_num
+            next_schedule = std::min(next_schedule, s->end - s->begin);
+
+            task[0] = s->begin;
+            task[1] = s->begin + next_schedule;
+
+            s->begin += next_schedule;
+            return true;
+        }
+        return false;
+    };
 }
