@@ -66,11 +66,7 @@ namespace simple_parallel {
         mmap_comm = {MPI_COMM_WORLD, bmpi::comm_duplicate};
 
         if (comm.rank() == 0) {
-            MPI_Comm_split(
-                MPI_COMM_WORLD, 0, 0, &parallel_section_master_only_comm);
-        } else {
-            MPI_Comm_split(
-                MPI_COMM_WORLD, 1, 0, &parallel_section_master_only_comm);
+            MPI_Comm_dup(MPI_COMM_SELF, &parallel_section_master_only_comm);
         }
 
         if (comm.size() == 1) {
@@ -245,7 +241,9 @@ namespace simple_parallel {
             worker::worker();
         }
 
-        MPI_Comm_free(&parallel_section_master_only_comm);
+        if (comm.rank() == 0) {
+            MPI_Comm_free(&parallel_section_master_only_comm);
+        }
     }
 
 } // namespace simple_parallel
