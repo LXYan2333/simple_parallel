@@ -1,4 +1,5 @@
 #include <mpi.h>
+#include <omp.h>
 #include <simple_parallel_for_c/main.h>
 #include <simple_parallel_for_c/omp_dynamic_schedule.h>
 #include <simple_parallel_for_c/simple_parallel_for_c.h>
@@ -6,16 +7,16 @@
 #include <stdlib.h>
 
 struct state {
-    int begin;
-    int end;
-    int current;
+    size_t begin;
+    size_t end;
+    size_t current;
 };
 
 bool scheduler_func(void* state, void* task_buffer) {
     struct state* s = (struct state*)state;
     if (s->current < s->end) {
         // printf("Task: %d\n", s->current);
-        *(int*)task_buffer = s->current;
+        *(size_t*)task_buffer = s->current;
         s->current++;
         return true;
     }
@@ -33,24 +34,37 @@ int main() {
         int my_rank, comm_size;
         MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
         MPI_Comm_size(MPI_COMM_WORLD, &comm_size);
-        int all_count = 0;
+        MPI_Bcast(&comm_size, 1, MPI_INT, 0, s_p_comm);
+        size_t           all_count = 0;
+        struct gss_state s;
 #pragma omp parallel
         {
-            int* buffer = NULL;
-
-            int count = 0;
-
-            static struct state s;
+            size_t* buffer = NULL;
+            size_t  count  = 0;
 #pragma omp masked
             {
                 s.begin   = 0;
-                s.end     = 20;
-                s.current = 0;
+                s.end           = 2000;
+                s.grain_size    = 4;
+                s.process_count = omp_get_num_threads();
+                MPI_Allreduce(MPI_IN_PLACE,
+                              &s.process_count,
+                              1,
+                              MPI_INT,
+                              MPI_SUM,
+                              s_p_comm);
+                s.process_count *= 4;
             }
+#pragma omp barrier
             S_P_PARALLEL_C_DYNAMIC_SCHEDULE_BEGIN(
-                s_p_comm, &buffer, scheduler_func, &s)
-            printf("Rank %d: %d\n", my_rank, *buffer);
-            count += *buffer;
+                s_p_comm, (void**)&buffer, guided_self_scheduler, &s)
+            printf("Rank %d: begin: %zu, end: %zu\n",
+                   my_rank,
+                   buffer[0],
+                   buffer[1]);
+            for (size_t i = buffer[0]; i < buffer[1]; i++) {
+                count += i;
+            }
             S_P_PARALLEL_C_DYNAMIC_SCHEDULE_END
 #pragma omp barrier
 #pragma omp critical
@@ -59,10 +73,14 @@ int main() {
             }
 #pragma omp barrier
 #pragma omp masked
-            { printf("Rank %d: All count is %d\n", my_rank, all_count); }
+            { printf("Rank %d: All count is %zu\n", my_rank, all_count); }
         }
 
+        MPI_Barrier(s_p_comm);
+        MPI_Allreduce(
+            MPI_IN_PLACE, &all_count, 1, MPI_INT64_T, MPI_SUM, s_p_comm);
+        printf("All count is %zu\n", all_count);
 
-        SIMPLE_PARALLEL_C_END
-        return 0;
+
+        SIMPLE_PARALLEL_C_END return 0;
 }

@@ -14,5 +14,6 @@ function(simple_parallel_setup_dependencies)
     find_package(Boost REQUIRED COMPONENTS mpi container)
     find_package(Microsoft.GSL REQUIRED)
     find_package(cppcoro REQUIRED)
+    find_package(concurrentqueue REQUIRED)
 
 endfunction()

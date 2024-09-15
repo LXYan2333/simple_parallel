@@ -27,7 +27,8 @@ target_link_system_libraries(
             Boost::mpi
             cppcoro::cppcoro
             Microsoft.GSL::GSL
-            Boost::container)  
+            Boost::container
+            concurrentqueue::concurrentqueue)  
 
 install(TARGETS mimalloc-static
         EXPORT  simple_parallelTargets

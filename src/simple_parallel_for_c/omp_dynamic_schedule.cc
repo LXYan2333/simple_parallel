@@ -1,3 +1,4 @@
+#include <cstdio>
 #include <simple_parallel_for_c/omp_dynamic_schedule.h>
 
 #include <array>
@@ -9,17 +10,19 @@
 #include <simple_parallel/dynamic_schedule.h>
 #include <utility>
 
-using task_buffer_t = std::array<char, 64>;
+using task_buffer_t = std::array<char, S_P_DEFAULT_C_TASK_BUFFER_SIZE>;
 using generator_t   = cppcoro::generator<task_buffer_t>;
+using scheduler_t   = simple_parallel::detail::dynamic_schedule<generator_t>;
 
 struct dynamic_schedule_context {
-    simple_parallel::detail::dynamic_schedule<generator_t> scheduler;
+    scheduler_t scheduler;
 };
 
 struct generator_context {
-    generator_t                                   generator;
-    decltype(std::declval<generator_t>().begin()) begin;
-    decltype(std::declval<generator_t>().end())   end;
+    generator_t generator;
+
+    decltype(std::declval<generator_t>().begin()) current;
+    decltype(std::declval<generator_t>().end())   sentinel;
 };
 
 namespace {
@@ -37,72 +40,63 @@ namespace {
 extern "C" {
 
 
-    size_t dynamic_schedule_context_size() {
+    auto dynamic_schedule_context_size() -> size_t {
         return sizeof(struct dynamic_schedule_context);
     }
 
-    void construct_dynamic_schedule_context(
+    auto construct_dynamic_schedule_context(
         dynamic_schedule_context* dynamic_schedule_context_buffer_ptr,
         bool (*scheduler_func)(void* state, void* task_buffer),
         void*    state,
-        size_t   prefetch_count,
-        MPI_Comm comm) {
-        bmpi::communicator bmpi_comm{comm, bmpi::comm_duplicate};
-        simple_parallel::detail::dynamic_schedule<generator_t> scheduler{
-            {bmpi_comm, bmpi::comm_attach},
-            get_generator(scheduler_func, state),
-            prefetch_count
-        };
-
-
+        int      num_threads,
+        MPI_Comm comm) -> void {
         new (dynamic_schedule_context_buffer_ptr)(
-            struct dynamic_schedule_context)(std::move(scheduler));
+            struct dynamic_schedule_context)({
+            {comm, bmpi::comm_attach},
+            get_generator(scheduler_func, state),
+            num_threads
+        });
     }
 
-    void begin_schedule(
-        dynamic_schedule_context* dynamic_schedule_context_buffer_ptr) {
-        dynamic_schedule_context_buffer_ptr->scheduler.schedule();
-    }
-
-    void destruct_dynamic_schedule_context(
-        dynamic_schedule_context* dynamic_schedule_context_buffer_ptr) {
+    auto destruct_dynamic_schedule_context(
+        dynamic_schedule_context* dynamic_schedule_context_buffer_ptr) -> void {
         dynamic_schedule_context_buffer_ptr->~dynamic_schedule_context();
     }
 
-    size_t thread_generator_context_buffer_size() {
+    auto thread_generator_context_buffer_size() -> size_t {
         return sizeof(generator_context);
     }
 
-    void construct_thread_task_generator(
+    auto construct_thread_task_generator(
         generator_context*        generator_context_buffer_ptr,
         dynamic_schedule_context* dynamic_schedule_context_buffer_ptr,
-        void**                    buffer_ptr) {
-        auto generator = dynamic_schedule_context_buffer_ptr->scheduler.gen(
-            dynamic_schedule_context_buffer_ptr->scheduler);
-        auto begin = generator.begin();
-        auto end   = generator.end();
+        void**                    task_buffer_ptr) -> void {
+        auto generator = dynamic_schedule_context_buffer_ptr->scheduler.gen();
+        auto begin     = generator.begin();
+        auto end       = generator.end();
         new (generator_context_buffer_ptr)(generator_context)(
             std::move(generator), std::move(begin), std::move(end));
-        *buffer_ptr = generator_context_buffer_ptr->begin->data();
+        *task_buffer_ptr = generator_context_buffer_ptr->current->data();
     }
 
-    void thread_generator_next(generator_context* generator_context_buffer_ptr,
-                               void**             buffer_ptr) {
-        ++generator_context_buffer_ptr->begin;
-        *buffer_ptr = generator_context_buffer_ptr->begin->data();
+    auto thread_generator_next(generator_context* generator_context_buffer_ptr,
+                               void**             task_buffer_ptr) -> void {
+        ++generator_context_buffer_ptr->current;
+        *task_buffer_ptr = generator_context_buffer_ptr->current->data();
     }
 
-    bool thread_generator_end(generator_context* generator_context_buffer_ptr) {
-        return generator_context_buffer_ptr->begin
-               == generator_context_buffer_ptr->end;
+    auto thread_generator_end(generator_context* generator_context_buffer_ptr)
+        -> bool {
+        return generator_context_buffer_ptr->current
+               == generator_context_buffer_ptr->sentinel;
     }
 
-    void destruct_thread_task_generator(
-        generator_context* generator_context_buffer_ptr) {
+    auto destruct_thread_task_generator(
+        generator_context* generator_context_buffer_ptr) -> void {
         generator_context_buffer_ptr->~generator_context();
     }
 
-    bool guided_self_scheduler(void* state, void* task_buffer) {
+    auto guided_self_scheduler(void* state, void* task_buffer) -> bool {
         auto* s    = static_cast<struct gss_state*>(state);
         auto* task = static_cast<size_t*>(task_buffer);
 
@@ -126,7 +120,7 @@ extern "C" {
         return false;
     };
 
-    bool liner_scheduler(void* state, void* task_buffer) {
+    auto liner_scheduler(void* state, void* task_buffer) -> bool {
         auto* s    = static_cast<struct liner_scheduler_state*>(state);
         auto* task = static_cast<size_t*>(task_buffer);
 

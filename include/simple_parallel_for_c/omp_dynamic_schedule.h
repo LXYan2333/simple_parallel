@@ -1,6 +1,7 @@
 #pragma once
 
 #include <mpi.h>
+#include <omp.h>
 #include <simple_parallel_for_c/lambda.h>
 #include <simple_parallel_for_c/simple_parallel_for_c.h>
 #include <stddef.h>
@@ -17,12 +18,8 @@ extern "C" {
         dynamic_schedule_context* dynamic_schedule_context_buffer_ptr,
         bool (*scheduler_func)(void* state, void* task_buffer),
         void*    state,
-        size_t   prefetch_count,
+        int      num_threads,
         MPI_Comm comm);
-
-
-    void begin_schedule(
-        dynamic_schedule_context* dynamic_schedule_context_buffer_ptr);
 
     void destruct_dynamic_schedule_context(
         dynamic_schedule_context* dynamic_schedule_context_buffer_ptr);
@@ -31,10 +28,10 @@ extern "C" {
     void construct_thread_task_generator(
         generator_context*        generator_context_buffer_ptr,
         dynamic_schedule_context* dynamic_schedule_context_buffer_ptr,
-        void**                    buffer_ptr);
+        void**                    task_buffer_ptr);
 
     void thread_generator_next(generator_context* generator_context_buffer_ptr,
-                               void**             buffer_ptr);
+                               void**             task_buffer_ptr);
 
     bool thread_generator_end(generator_context* generator_context_buffer_ptr);
 
@@ -63,12 +60,16 @@ extern "C" {
 }
 #endif
 
+#define S_P_DEFAULT_C_TASK_BUFFER_SIZE 64
+
 
 // clang-format off
-#define S_P_PARALLEL_C_DYNAMIC_SCHEDULE_BEGIN(                                 \
-    s_p_communicator, task_buffer, scheduler_func, scheduler_state)            \
+#define S_P_PARALLEL_C_DYNAMIC_SCHEDULE_BEGIN(s_p_communicator,                \
+                                              task_buffer,                     \
+                                              scheduler_func,                  \
+                                              scheduler_state)                 \
     static dynamic_schedule_context* s_p_dynamic_schedule_context;             \
-    generator_context*              s_p_gen_context;                           \
+    generator_context*               s_p_gen_context;                          \
     _Pragma("omp masked")                                                      \
     {                                                                          \
         s_p_dynamic_schedule_context =                                         \
@@ -76,9 +77,8 @@ extern "C" {
         construct_dynamic_schedule_context(s_p_dynamic_schedule_context,       \
                                            scheduler_func,                     \
                                            scheduler_state,                    \
-                                           80,                                 \
+                                           omp_get_num_threads(),              \
                                            s_p_communicator);                  \
-        begin_schedule(s_p_dynamic_schedule_context);                          \
     }                                                                          \
     _Pragma("omp barrier")                                                     \
     s_p_gen_context = malloc(thread_generator_context_buffer_size());          \
@@ -92,7 +92,8 @@ extern "C" {
     destruct_thread_task_generator(s_p_gen_context);                           \
     free(s_p_gen_context);                                                     \
     _Pragma("omp barrier")                                                     \
-    _Pragma("omp masked") {                                                    \
+    _Pragma("omp masked")                                                      \
+    {                                                                          \
         destruct_dynamic_schedule_context(s_p_dynamic_schedule_context);       \
         free(s_p_dynamic_schedule_context);                                    \
     }

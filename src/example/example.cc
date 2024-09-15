@@ -1,6 +1,9 @@
 #include <array>
+#include <boost/mpi/communicator.hpp>
 #include <cppcoro/generator.hpp>
+#include <cstddef>
 #include <list>
+#include <memory>
 #include <mpi.h>
 #include <optional>
 #include <simple_parallel/detail.h>
@@ -16,22 +19,25 @@
  * @@expect:	unspecified
  * @@version:	omp_5.1
  */
-#include <span>
+#include <omp.h>
 #include <stdio.h>
-#include <thread>
-#include <utility>
 #include <vector>
 
-cppcoro::generator<int> my_gen() {
-    for (int i = 0; i < 1000; i++) {
+cppcoro::generator<size_t> my_gen() {
+    for (size_t i = 0; i < 100000; i++) {
         co_yield i;
     }
 }
 
 int main(void) {
-    int a, i;
+    size_t a, i;
 
     std::vector<int> test{1, 2, 3, 4, 5};
+
+    std::unique_ptr<
+        simple_parallel::detail::dynamic_schedule<decltype(my_gen())>>
+        schedule;
+
 
     SIMPLE_PARALLEL_BEGIN(true)
 #pragma omp parallel
@@ -41,37 +47,39 @@ int main(void) {
         //               << test[0] << test[1] << test[2] << "\n";
         // }
 #pragma omp masked
-        a = 0;
+        {
+            a = 0;
+            std::cout << "num_threads on rank " << bmpi::communicator{}.rank()
+                      << "is " << omp_get_num_threads() << "\n";
+            bmpi::communicator{}.barrier();
+        }
 #pragma omp barrier
 
         // To avoid race conditions, add a barrier here.
 
-        static simple_parallel::detail::dynamic_schedule<decltype(my_gen())>
-            schedule;
-
-
-        // auto                                      generator = my_gen();
-
 #pragma omp masked
         {
-            schedule = {simple_parallel::detail::comm, my_gen(), 10};
-            schedule.schedule();
+            schedule = std::make_unique<
+                simple_parallel::detail::dynamic_schedule<decltype(my_gen())>>(
+                simple_parallel::detail::comm, my_gen(), omp_get_num_threads());
         }
+
 #pragma omp barrier
-        int  loc = 0;
-        auto gen = schedule.gen(schedule);
+        size_t loc = 0;
+        auto   gen = schedule->gen();
 
         for (auto i : gen) {
-            std::cout << i << "\n";
+            std::cout << i << " ";
             loc += i;
         }
 #pragma omp critical
         a += loc;
 #pragma omp barrier
 #pragma omp masked
-        { printf("Sum is %d\n", a); }
+        { printf("Sum is %zu\n", a); }
     }
-    MPI_Allreduce(MPI_IN_PLACE, &a, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &a, 1, MPI_INT64_T, MPI_SUM, MPI_COMM_WORLD);
+    printf("Final sum is %zu\n", a);
     SIMPLE_PARALLEL_END
     return 0;
 }
