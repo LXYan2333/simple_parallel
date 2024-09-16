@@ -2,7 +2,6 @@
 
 // clang-format off
 #cmakedefine include_concurrentqueue
-#cmakedefine include_concurrentqueue_concurrentqueue
 #cmakedefine include_moodycamel_concurrentqueue
 // clang-format on
 
@@ -10,8 +9,7 @@
     #include <concurrentqueue.h>
 #elifdef include_moodycamel_concurrentqueue
     #include <moodycamel/concurrentqueue.h>
-#elifdef include_concurrentqueue_concurrentqueue
-    #include <concurrentqueue/concurrentqueue.h>
 #else
-    #error "No concurrentqueue header found"
+    #include <concurrentqueue/concurrentqueue.h>
+    #warning "try to include system concurrentqueue"
 #endif
