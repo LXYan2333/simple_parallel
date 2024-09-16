@@ -15,8 +15,7 @@ if(COMPILER_SUPPORTS_FBLOCKS_FLAG)
     try_compile(
         COMPILER_SUPPORTS_BLOCKS
         SOURCES ${PROJECT_SOURCE_DIR}/src/try_compile/test_blocks.c
-        LINK_OPTIONS "-lBlocksRuntime"
-        OUTPUT_VARIABLE OUTPUT)
+        LINK_OPTIONS "-lBlocksRuntime")
     if(NOT COMPILER_SUPPORTS_BLOCKS)
         message(FATAL_ERROR "\nmissing BlocksRuntime library.
 please install it from your distribution's repository:

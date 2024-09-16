@@ -4,8 +4,8 @@ add_library(simple_parallel::simple_parallel ALIAS simple_parallel)
 
 target_include_directories(
     simple_parallel 
-    PRIVATE "${CMAKE_BINARY_DIR}/configured_files/include"
     PUBLIC  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+            $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/configured_files/include>
             $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include>
             $<INSTALL_INTERFACE:include/${PROJECT_NAME}-${PROJECT_VERSION}>)
 
@@ -18,6 +18,13 @@ target_link_libraries(
     mimalloc-static
     PUBLIC  simple_parallel)
 
+if(NOT TARGET concurrentqueue::concurrentqueue)
+    add_library(concurrentqueue::concurrentqueue ALIAS concurrentqueue)
+endif()
+
+if(NOT TARGET cppcoro::cppcoro)
+    add_library(cppcoro::cppcoro ALIAS cppcoro)
+endif()
 
 target_link_system_libraries(
     simple_parallel 

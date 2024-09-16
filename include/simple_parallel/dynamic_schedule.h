@@ -10,9 +10,9 @@
 #include <cassert>
 #include <cppcoro/generator.hpp>
 #include <cstddef>
+#include <internal_use_only/include_concurrentqueue.h>
 #include <latch>
 #include <memory>
-#include <moodycamel/concurrentqueue.h>
 #include <mpi.h>
 #include <mutex>
 #include <omp.h>

@@ -1,0 +1,17 @@
+#pragma once
+
+// clang-format off
+#cmakedefine include_concurrentqueue
+#cmakedefine include_concurrentqueue_concurrentqueue
+#cmakedefine include_moodycamel_concurrentqueue
+// clang-format on
+
+#ifdef include_concurrentqueue
+    #include <concurrentqueue.h>
+#elifdef include_moodycamel_concurrentqueue
+    #include <moodycamel/concurrentqueue.h>
+#elifdef include_concurrentqueue_concurrentqueue
+    #include <concurrentqueue/concurrentqueue.h>
+#else
+    #error "No concurrentqueue header found"
+#endif
