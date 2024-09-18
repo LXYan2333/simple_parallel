@@ -1,5 +1,5 @@
 aux_source_directory(. source)
-add_library(simple_parallel_for_c ${source})
+add_library(simple_parallel_for_c OBJECT ${source})
 add_library(simple_parallel::simple_parallel_for_c ALIAS simple_parallel_for_c)
 
 # if using clang, enable blocks extension

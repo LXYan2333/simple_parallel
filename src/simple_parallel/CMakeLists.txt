@@ -1,5 +1,5 @@
 aux_source_directory(. source)
-add_library(simple_parallel ${source})
+add_library(simple_parallel OBJECT ${source})
 add_library(simple_parallel::simple_parallel ALIAS simple_parallel)
 
 target_include_directories(
@@ -14,10 +14,6 @@ target_link_libraries(
     PRIVATE $<BUILD_INTERFACE:simple_parallel::simple_parallel_options>
             $<BUILD_INTERFACE:simple_parallel::simple_parallel_warnings>)
 
-target_link_libraries(
-    mimalloc-static
-    PUBLIC  simple_parallel)
-
 if(NOT TARGET concurrentqueue::concurrentqueue)
     add_library(concurrentqueue::concurrentqueue ALIAS concurrentqueue)
 endif()
@@ -29,7 +25,7 @@ endif()
 target_link_system_libraries(
     simple_parallel 
     PUBLIC  OpenMP::OpenMP_CXX
-            mimalloc-static
+            mimalloc-obj
             MPI::MPI_C
             Boost::mpi
             cppcoro::cppcoro
@@ -37,6 +33,6 @@ target_link_system_libraries(
             Boost::container
             concurrentqueue::concurrentqueue)  
 
-install(TARGETS mimalloc-static
+install(TARGETS mimalloc-obj
         EXPORT  simple_parallelTargets
         ARCHIVE DESTINATION lib/mimalloc_for_simple_parallel)
