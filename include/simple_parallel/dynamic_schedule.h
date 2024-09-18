@@ -300,7 +300,8 @@ namespace simple_parallel::detail {
                 server_thread = std::thread([this] {
                     s_p_this_thread_should_be_proxied = false;
                     for (const auto& _ : server()) {
-                        std::this_thread::yield();
+                        std::this_thread::sleep_for(
+                            std::chrono::milliseconds(1));
                     }
                 });
             }
