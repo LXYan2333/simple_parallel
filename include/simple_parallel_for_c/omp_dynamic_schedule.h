@@ -56,6 +56,10 @@ extern "C" {
         size_t grain_size;
     };
 
+    struct simple_task {
+        size_t begin;
+        size_t end;
+    };
 
 #ifdef __cplusplus
 }

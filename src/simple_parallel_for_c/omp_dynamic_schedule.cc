@@ -97,7 +97,7 @@ extern "C" {
 
     auto guided_self_scheduler(void* state, void* task_buffer) -> bool {
         auto* s    = static_cast<struct gss_state*>(state);
-        auto* task = static_cast<size_t*>(task_buffer);
+        auto* task = static_cast<simple_task*>(task_buffer);
 
         size_t unused_num = s->end - s->begin;
 
@@ -110,8 +110,8 @@ extern "C" {
             // next_schedule should not be greater than unused_num
             next_schedule = std::min(next_schedule, unused_num);
 
-            task[0] = s->begin;
-            task[1] = s->begin + next_schedule;
+            task->begin = s->begin;
+            task->end   = s->begin + next_schedule;
 
             s->begin += next_schedule;
             return true;
@@ -121,7 +121,7 @@ extern "C" {
 
     auto liner_scheduler(void* state, void* task_buffer) -> bool {
         auto* s    = static_cast<struct liner_scheduler_state*>(state);
-        auto* task = static_cast<size_t*>(task_buffer);
+        auto* task = static_cast<struct simple_task*>(task_buffer);
 
         if (s->begin < s->end) {
             size_t next_schedule = s->grain_size;
@@ -129,8 +129,8 @@ extern "C" {
             // next_schedule should not be greater than unused_num
             next_schedule = std::min(next_schedule, s->end - s->begin);
 
-            task[0] = s->begin;
-            task[1] = s->begin + next_schedule;
+            task->begin = s->begin;
+            task->end   = s->begin + next_schedule;
 
             s->begin += next_schedule;
             return true;

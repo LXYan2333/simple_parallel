@@ -39,16 +39,18 @@ int main() {
         size_t           all_count = 0;
         struct gss_state s;
 
-        // make sure your own task buffer is not larger than
-        // S_P_DEFAULT_C_TASK_BUFFER_SIZE
-        // if you do need a larger buffer, you must change the value by setting
-        // simple_parallel_DEFAULT_C_TASK_BUFFER_SIZE in cmake configuration
-        // stage and recompile simple_parallel_for_c library again
-        assert(sizeof(struct gss_state) <= S_P_DEFAULT_C_TASK_BUFFER_SIZE);
 
 #pragma omp parallel
         {
-            size_t* buffer = NULL;
+            struct simple_task* buffer = NULL;
+            // make sure your own task buffer is not larger than
+            // S_P_DEFAULT_C_TASK_BUFFER_SIZE
+            // if you do need a larger buffer, you must change the value by
+            // setting simple_parallel_DEFAULT_C_TASK_BUFFER_SIZE in cmake
+            // configuration stage and recompile simple_parallel_for_c library
+            // again
+            assert(sizeof(struct simple_task)
+                   <= S_P_DEFAULT_C_TASK_BUFFER_SIZE);
             size_t  count  = 0;
 #pragma omp masked
             {
@@ -69,9 +71,9 @@ int main() {
                 s_p_comm, (void**)&buffer, guided_self_scheduler, &s)
             printf("Rank %d: begin: %zu, end: %zu\n",
                    my_rank,
-                   buffer[0],
-                   buffer[1]);
-            for (size_t i = buffer[0]; i < buffer[1]; i++) {
+                   buffer->begin,
+                   buffer->end);
+            for (size_t i = buffer->begin; i < buffer->end; i++) {
                 count += i;
             }
             S_P_PARALLEL_C_DYNAMIC_SCHEDULE_END
