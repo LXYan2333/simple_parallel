@@ -1,4 +1,3 @@
-#include <cstdio>
 #include <simple_parallel_for_c/omp_dynamic_schedule.h>
 
 #include <array>

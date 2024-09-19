@@ -1,5 +1,6 @@
 #pragma once
 
+#include <internal_use_only/c_omp_dynamic_schedule_buffer_size_config.h>
 #include <mpi.h>
 #include <omp.h>
 #include <simple_parallel_for_c/lambda.h>
@@ -59,9 +60,6 @@ extern "C" {
 #ifdef __cplusplus
 }
 #endif
-
-#define S_P_DEFAULT_C_TASK_BUFFER_SIZE 64
-
 
 // clang-format off
 #define S_P_PARALLEL_C_DYNAMIC_SCHEDULE_BEGIN(s_p_communicator,                \

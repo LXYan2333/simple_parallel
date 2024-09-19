@@ -26,3 +26,4 @@ if(NOT include_moodycamel_concurrentqueue)
 endif()
 
 configure_file("include_concurrentqueue.h.in" "${CMAKE_BINARY_DIR}/configured_files/include/internal_use_only/include_concurrentqueue.h" ESCAPE_QUOTES)
+configure_file("c_omp_dynamic_schedule_buffer_size_config.h.in" "${CMAKE_BINARY_DIR}/configured_files/include/internal_use_only/c_omp_dynamic_schedule_buffer_size_config.h" ESCAPE_QUOTES)

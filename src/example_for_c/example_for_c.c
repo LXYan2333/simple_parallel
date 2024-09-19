@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <mpi.h>
 #include <omp.h>
 #include <simple_parallel_for_c/main.h>
@@ -37,6 +38,14 @@ int main() {
         MPI_Bcast(&comm_size, 1, MPI_INT, 0, s_p_comm);
         size_t           all_count = 0;
         struct gss_state s;
+
+        // make sure your own task buffer is not larger than
+        // S_P_DEFAULT_C_TASK_BUFFER_SIZE
+        // if you do need a larger buffer, you must change the value by setting
+        // simple_parallel_DEFAULT_C_TASK_BUFFER_SIZE in cmake configuration
+        // stage and recompile simple_parallel_for_c library again
+        assert(sizeof(struct gss_state) <= S_P_DEFAULT_C_TASK_BUFFER_SIZE);
+
 #pragma omp parallel
         {
             size_t* buffer = NULL;
