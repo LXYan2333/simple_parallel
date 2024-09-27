@@ -86,6 +86,7 @@ namespace simple_parallel::detail {
         // used on rank != 0
         std::latch        finish_latch_1;
         std::latch        finish_latch_2;
+        std::latch        one_master_thread_wait_for_server{2};
 
         enum mpi_tag : int {
             client_request_task,
@@ -124,6 +125,9 @@ namespace simple_parallel::detail {
                 }
             }
 
+            // only adds up to 2
+            size_t run_times = 0;
+
             while (true) {
                 for (rank& rank_ : ranks) {
                     if (rank_.target_rank == 0) {
@@ -132,7 +136,8 @@ namespace simple_parallel::detail {
                             if (current_task == sentinel_task) {
                                 goto task_gen_finished_label;
                             }
-                            rank_task_buffer.enqueue(*ptok, *current_task);
+                            rank_task_buffer.enqueue(*ptok,
+                                                     std::move(*current_task));
                             current_task++;
                         }
                         continue;
@@ -178,12 +183,26 @@ namespace simple_parallel::detail {
                                         1, server_send_task, *current_task));
                             }
                             current_task++;
+                            if (run_times == 0) {
+                                break;
+                            }
                         }
                     }
+                }
+                if (run_times == 0) {
+                    run_times++;
+                    continue;
+                } else if (run_times == 1) {
+                    run_times++;
+                    one_master_thread_wait_for_server.arrive_and_wait();
+                    continue;
                 }
                 co_yield false;
             }
         task_gen_finished_label:
+            if (!one_master_thread_wait_for_server.try_wait()) {
+                one_master_thread_wait_for_server.arrive_and_wait();
+            }
 
 
             // all tasks generated, make sure all async send request are
@@ -325,72 +344,20 @@ namespace simple_parallel::detail {
             }
         }
 
-        // /**
-        //  * @brief every thread has its own thread_local task buffer, and
-        //  should
-        //  * assign it to this vector before dynamic schedule begin
-        //  *
-        //  * @tparam buffer_prefetch_threshold if the tasks in the buffer is
-        //  less
-        //  * than this value, buffer will try to get more tasks from the
-        //  scheduler
-        //  */
-
-        // class thread_local_task_buffer {
-        //     boost::circular_buffer<task_type> buffer;
-        //     bool                              finished = false;
-
-        //     int rank;
-
-        //     // a communicator duplicated from current rank's
-        //     // communicator_to_master[comm_rank]
-        //     bmpi::communicator thread_comm_to_master;
-
-        //     dynamic_schedule* scheduler = nullptr;
-
-        //     moodycamel::ProducerToken t_l_ptok;
-
-
-        //   public:
-        //     /**
-        //      * @brief Construct a new thread local task buffer object
-        //      *
-        //      * @param buffer_size the buffer size. must be greater than 2
-        //      * @param scheduler a pointer to the dynamic schedule object
-        //      */
-        //     explicit thread_local_task_buffer(dynamic_schedule* scheduler_)
-        //         : buffer(thread_buffer_size),
-        //           scheduler(scheduler_),
-        //           rank(scheduler->comm_rank),
-        //           t_l_ptok(scheduler->rank_task_buffer) {
-        //         if (rank != 0) {
-        //             thread_comm_to_master = {
-        //                 scheduler->communicator_to_master[scheduler->comm_rank],
-        //                 boost::mpi::comm_duplicate};
-        //         }
-        //     }
-
-        //     /**
-        //      * @brief get a task from the local buffer without any sync
-        //      * operation. return std::nullopt if the buffer is empty
-        //      *
-        //      * @return std::optional<task_type>
-        //      */
-        //     auto pop() -> std::optional<task_type> {
-        //         if (buffer.empty()) {
-        //             return std::nullopt;
-        //         }
-        //         task_type task = std::move(buffer.front());
-        //         buffer.pop_front();
-        //         return {std::move(task)};
-        //     }
-        // };
       private:
         std::unique_ptr<std::mutex> gen_comm_mutex;
+        std::atomic<bool>           is_first_thread{true};
 
       public:
         auto gen() -> cppcoro::generator<task_type> {
             if (comm_rank == 0) {
+                // exactly one master thread will wait for the server thread to
+                // connect to other ranks
+                if (is_first_thread.exchange(false,
+                                             std::memory_order_relaxed)) {
+                    one_master_thread_wait_for_server.arrive_and_wait();
+                }
+
                 while (true) {
                     task_type task;
                     if (rank_task_buffer.try_dequeue_from_producer(*ptok,
