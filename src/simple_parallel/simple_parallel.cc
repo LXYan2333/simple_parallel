@@ -65,10 +65,6 @@ namespace simple_parallel {
         comm      = {MPI_COMM_WORLD, bmpi::comm_duplicate};
         mmap_comm = {MPI_COMM_WORLD, bmpi::comm_duplicate};
 
-        if (comm.rank() == 0) {
-            MPI_Comm_dup(MPI_COMM_SELF, &parallel_section_master_only_comm);
-        }
-
         if (comm.size() == 1) {
             if (!get_env_var("SIMPLE_PARALLEL_DEBUG").has_value()) {
                 // only one process, no need to do anything
@@ -239,10 +235,6 @@ namespace simple_parallel {
 
         } else {
             worker::worker();
-        }
-
-        if (comm.rank() == 0) {
-            MPI_Comm_free(&parallel_section_master_only_comm);
         }
     }
 

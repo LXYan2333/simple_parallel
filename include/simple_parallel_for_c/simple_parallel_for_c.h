@@ -13,22 +13,33 @@ extern "C" {
 
     void simple_parallel_run_invocable(void* invocable, bool parallel_run);
 
-    extern MPI_Comm parallel_section_comm;
-    extern MPI_Comm parallel_section_master_only_comm;
-
 #ifdef __cplusplus
 }
 #endif
 
 // clang-format off
+#ifdef _OPENMP
 #define SIMPLE_PARALLEL_C_BEGIN(_parallel_run)                                 \
     {                                                                          \
         int _s_p_mpi_size;                                                     \
         MPI_Comm_size(MPI_COMM_WORLD, &_s_p_mpi_size);                         \
         const bool simple_parallel_run = _s_p_mpi_size != 1 && (_parallel_run);\
         MPI_Comm s_p_comm = simple_parallel_run ? MPI_COMM_WORLD               \
-                                           : parallel_section_master_only_comm;\
+                                                : MPI_COMM_SELF;               \
+        int s_p_omp_num_threads = omp_get_max_threads();                       \
+        MPI_Bcast(&s_p_omp_num_threads, 1, MPI_INT, 0, s_p_comm);              \
+        omp_set_num_threads(s_p_omp_num_threads);                              \
         SIMPLE_PARALLEL_LAMBDA(simple_parallel_lambda_tag, void) {
+#else
+#define SIMPLE_PARALLEL_C_BEGIN(_parallel_run)                                 \
+    {                                                                          \
+        int _s_p_mpi_size;                                                     \
+        MPI_Comm_size(MPI_COMM_WORLD, &_s_p_mpi_size);                         \
+        const bool simple_parallel_run = _s_p_mpi_size != 1 && (_parallel_run);\
+        MPI_Comm s_p_comm = simple_parallel_run ? MPI_COMM_WORLD               \
+                                                : MPI_COMM_SELF;               \
+        SIMPLE_PARALLEL_LAMBDA(simple_parallel_lambda_tag, void) {
+#endif
 
 #define SIMPLE_PARALLEL_C_END                                                  \
         };                                                                     \

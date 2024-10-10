@@ -122,7 +122,7 @@ namespace simple_parallel::detail {
                 thread_buffer_size * num_threads_on_each_rank.at(0);
 
             // only adds up to 2
-            size_t run_times = 0;
+            size_t run_times                                  = 0;
             bool   one_master_thread_wait_for_server_released = false;
 
             while (true) {

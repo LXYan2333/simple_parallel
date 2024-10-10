@@ -19,8 +19,6 @@ extern __thread mi_heap_t* _mi_heap_default;
 extern __thread bool       s_p_should_proxy_mmap;
 extern std::atomic<int>    s_p_comm_rank;
 
-extern "C" MPI_Comm parallel_section_master_only_comm;
-
 extern "C" void* (*simple_parallel_cross_node_heap_mmap)(
     void* addr, size_t len, int prot, int flags, int fd, off_t offset);
 
