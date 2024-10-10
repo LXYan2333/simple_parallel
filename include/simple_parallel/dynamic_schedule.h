@@ -15,8 +15,8 @@
 #include <memory>
 #include <mpi.h>
 #include <mutex>
-#include <omp.h>
 #include <ranges>
+#include <semaphore>
 #include <simple_parallel/detail.h>
 #include <simple_parallel/simple_parallel.h>
 #include <thread>
@@ -75,6 +75,11 @@ namespace simple_parallel::detail {
 
         std::vector<rank> ranks;
 
+        std::vector<bmpi::communicator> comm_to_master;
+        // a mono increasing thread index (since this header is not desinged
+        // specifically for OpenMP, omp_get_thread_num() is not available)
+        std::atomic<size_t>             current_thread_index = 0;
+
         std::thread server_thread;
 
         moodycamel::ConcurrentQueue<task_type> rank_task_buffer;
@@ -86,7 +91,8 @@ namespace simple_parallel::detail {
         // used on rank != 0
         std::latch        finish_latch_1;
         std::latch        finish_latch_2;
-        std::latch        one_master_thread_wait_for_server{2};
+
+        std::binary_semaphore one_master_thread_wait_for_server{0};
 
         enum mpi_tag : int {
             client_request_task,
@@ -115,18 +121,9 @@ namespace simple_parallel::detail {
             const size_t rank0_buffer_size =
                 thread_buffer_size * num_threads_on_each_rank.at(0);
 
-            // setup communicators with other ranks
-            for (int i = 1; i < comm_size; i++) {
-                for (int thread_num = 0;
-                     thread_num < num_threads_on_each_rank.at(i);
-                     thread_num++) {
-                    ranks.at(i).threads.emplace_back(bmpi::communicator{
-                        ranks.at(i).comm_to_rank0, boost::mpi::comm_duplicate});
-                }
-            }
-
             // only adds up to 2
             size_t run_times = 0;
+            bool   one_master_thread_wait_for_server_released = false;
 
             while (true) {
                 for (rank& rank_ : ranks) {
@@ -194,14 +191,15 @@ namespace simple_parallel::detail {
                     continue;
                 } else if (run_times == 1) {
                     run_times++;
-                    one_master_thread_wait_for_server.arrive_and_wait();
+                    one_master_thread_wait_for_server.release();
+                    one_master_thread_wait_for_server_released = true;
                     continue;
                 }
                 co_yield false;
             }
         task_gen_finished_label:
-            if (!one_master_thread_wait_for_server.try_wait()) {
-                one_master_thread_wait_for_server.arrive_and_wait();
+            if (!one_master_thread_wait_for_server_released) {
+                one_master_thread_wait_for_server.release();
             }
 
 
@@ -292,7 +290,8 @@ namespace simple_parallel::detail {
                   rank_task_buffer)),
               gen_comm_mutex(std::make_unique<std::mutex>()),
               finish_latch_1(num_threads_),
-              finish_latch_2(num_threads_) {
+              finish_latch_2(num_threads_),
+              num_threads(num_threads_) {
 
 
             bmpi::all_gather(
@@ -318,11 +317,31 @@ namespace simple_parallel::detail {
             if (comm_rank == 0) {
                 server_thread = std::thread([this] {
                     s_p_this_thread_should_be_proxied = false;
+
+                    // setup communicators with other ranks
+                    for (int i = 1; i < comm_size; i++) {
+                        for (int thread_num = 0;
+                             thread_num < num_threads_on_each_rank.at(i);
+                             thread_num++) {
+                            ranks.at(i).threads.emplace_back(
+                                bmpi::communicator{ranks.at(i).comm_to_rank0,
+                                                   boost::mpi::comm_duplicate});
+                        }
+                    }
+
                     for (const auto& _ : server()) {
                         std::this_thread::sleep_for(
                             std::chrono::milliseconds(1));
                     }
                 });
+            } else {
+                // setup the communicators with rank 0
+                for (int thread_num = 0; thread_num < num_threads;
+                     thread_num++) {
+                    comm_to_master.emplace_back(
+                        ranks.at(comm_rank).comm_to_rank0,
+                        boost::mpi::comm_duplicate);
+                }
             }
         }
 
@@ -353,9 +372,8 @@ namespace simple_parallel::detail {
             if (comm_rank == 0) {
                 // exactly one master thread will wait for the server thread to
                 // connect to other ranks
-                if (is_first_thread.exchange(false,
-                                             std::memory_order_relaxed)) {
-                    one_master_thread_wait_for_server.arrive_and_wait();
+                if (is_first_thread.exchange(false)) {
+                    one_master_thread_wait_for_server.acquire();
                 }
 
                 while (true) {
@@ -381,12 +399,23 @@ namespace simple_parallel::detail {
 
                 moodycamel::ProducerToken t_l_ptok(rank_task_buffer);
 
-                bmpi::communicator thread_comm;
-                {
-                    std::lock_guard<std::mutex> lock(*gen_comm_mutex);
-                    thread_comm = {ranks.at(comm_rank).comm_to_rank0,
-                                   boost::mpi::comm_duplicate};
+                size_t my_thread_index = current_thread_index.fetch_add(1);
+
+                if (my_thread_index >= num_threads) {
+                    std::cerr
+                        << "The number of threads on this rank has exceeded "
+                           "the number of threads specified in the constructor "
+                           "of dynamic_schedule. If you use omp and you are "
+                           "sure you have passed correct parameter, then this "
+                           "problem is usually caused by mixing different omp "
+                           "implementations. e.g. use clang omp in the main "
+                           "program and link to MKL bundled with gcc omp.";
+                    MPI_Abort(MPI_COMM_WORLD, 11);
                 }
+
+                bmpi::communicator& thread_comm =
+                    comm_to_master.at(my_thread_index);
+
 
                 assert(thread_comm.rank() == 1);
 
