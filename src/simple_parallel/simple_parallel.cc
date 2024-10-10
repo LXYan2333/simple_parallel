@@ -105,8 +105,6 @@ namespace simple_parallel {
             }
         }
 
-        simple_parallel_cross_node_heap_mmap = master::cross_node_heap_mmap;
-
         // if environment variable SIMPLE_PARALLEL_DEBUG is set to 1, print PID
         // and wait Enter.
         // this is for debug purpose. you can launch this program and attach
