@@ -24,8 +24,10 @@ extern "C" {
         int _s_p_mpi_size;                                                     \
         MPI_Comm_size(MPI_COMM_WORLD, &_s_p_mpi_size);                         \
         const bool simple_parallel_run = _s_p_mpi_size != 1 && (_parallel_run);\
-        MPI_Comm s_p_comm = simple_parallel_run ? MPI_COMM_WORLD               \
-                                                : MPI_COMM_SELF;               \
+        MPI_Comm s_p_comm_to_dup = simple_parallel_run ? MPI_COMM_WORLD        \
+                                                       : MPI_COMM_SELF;        \
+        MPI_Comm s_p_comm;                                                     \
+        MPI_Comm_dup(s_p_comm_to_dup, &s_p_comm);                              \
         int s_p_omp_num_threads = omp_get_max_threads();                       \
         MPI_Bcast(&s_p_omp_num_threads, 1, MPI_INT, 0, s_p_comm);              \
         omp_set_num_threads(s_p_omp_num_threads);                              \
@@ -36,8 +38,10 @@ extern "C" {
         int _s_p_mpi_size;                                                     \
         MPI_Comm_size(MPI_COMM_WORLD, &_s_p_mpi_size);                         \
         const bool simple_parallel_run = _s_p_mpi_size != 1 && (_parallel_run);\
-        MPI_Comm s_p_comm = simple_parallel_run ? MPI_COMM_WORLD               \
-                                                : MPI_COMM_SELF;               \
+        MPI_Comm s_p_comm_to_dup = simple_parallel_run ? MPI_COMM_WORLD        \
+                                                       : MPI_COMM_SELF;        \
+        MPI_Comm s_p_comm;                                                     \
+        MPI_Comm_dup(s_p_comm_to_dup, &s_p_comm);                              \
         SIMPLE_PARALLEL_LAMBDA(simple_parallel_lambda_tag, void) {
 #endif
 
@@ -45,5 +49,6 @@ extern "C" {
         };                                                                     \
         simple_parallel_run_invocable(&simple_parallel_lambda_tag,             \
                                    simple_parallel_run);                       \
+        MPI_Comm_free(&s_p_comm);                                              \
     };
 // clang-format on
