@@ -1,8 +1,8 @@
 #include <simple_parallel/worker.h>
 
-#include <cstddef>
 #include <atomic>
 #include <boost/mpi.hpp>
+#include <cstddef>
 #include <simple_parallel/detail.h>
 #include <simple_parallel/mpi_util.h>
 #include <sys/mman.h>
@@ -95,6 +95,32 @@ namespace simple_parallel::worker {
                         for (const auto i : mmaped_areas) {
                             madvise(i.data(), i.size_bytes(), MADV_DONTNEED);
                         }
+
+                        break;
+                    }
+                    case mpi_util::rpc_code::run_function_with_context: {
+                        void (*f)(void*) = nullptr;
+                        void*  context{};
+                        size_t context_size{};
+                        MPI_Bcast(static_cast<void*>(&f),
+                                  sizeof(void*),
+                                  MPI_BYTE,
+                                  0,
+                                  comm);
+                        MPI_Bcast(
+                            &context_size, sizeof(size_t), MPI_BYTE, 0, comm);
+
+                        std::vector<std::byte> buffer;
+                        buffer.reserve(context_size);
+                        context = buffer.data();
+
+                        MPI_Bcast(context,
+                                  static_cast<int>(context_size),
+                                  MPI_BYTE,
+                                  0,
+                                  comm);
+
+                        f(context);
 
                         break;
                     }

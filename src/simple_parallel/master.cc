@@ -146,6 +146,22 @@ namespace simple_parallel::master {
         f();
     }
 
+    auto run_function_with_context(void (*f)(void*),
+                                   void*  context,
+                                   size_t context_size) -> void {
+        assert(comm.size() > 1);
+        std::scoped_lock lock{rpc};
+        assert(comm.rank() == 0);
+
+        broadcast_tag(mpi_util::rpc_code::run_function_with_context);
+
+        MPI_Bcast(static_cast<void*>(&f), sizeof(void*), MPI_BYTE, 0, comm);
+        MPI_Bcast(&context_size, sizeof(size_t), MPI_BYTE, 0, comm);
+        MPI_Bcast(context, static_cast<int>(context_size), MPI_BYTE, 0, comm);
+
+        f(context);
+    };
+
     auto cross_node_heap_mmap(void*  addr,
                               size_t len,
                               int    prot,

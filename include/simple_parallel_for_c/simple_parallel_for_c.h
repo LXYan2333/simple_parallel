@@ -3,6 +3,9 @@
 #include <mpi.h>
 #include <simple_parallel_for_c/lambda.h>
 #include <stdbool.h>
+#ifdef _OPENMP
+    #include <omp.h>
+#endif
 
 #ifdef __cplusplus
 extern "C" {

@@ -20,6 +20,10 @@ namespace simple_parallel::master {
     __attribute__((noinline)) auto
     run_std_function_on_all_nodes(std::move_only_function<void()> f) -> void;
 
+    auto run_function_with_context(void (*f)(void*),
+                                   void*  context,
+                                   size_t context_size) -> void;
+
     auto cross_node_heap_mmap(void*  addr,
                               size_t len,
                               int    prot,

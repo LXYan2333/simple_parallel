@@ -13,6 +13,7 @@ namespace simple_parallel::mpi_util {
         init,
         finalize,
         run_std_function,
+        run_function_with_context,
     };
 
 } // namespace simple_parallel::mpi_util
