@@ -7,9 +7,12 @@ set(MI_USE_CXX ON)
 add_subdirectory(mimalloc_for_simple_parallel)
 
 add_subdirectory(simple_parallel)
-add_subdirectory(simple_parallel_for_c)
 add_subdirectory(example)
-add_subdirectory(example_for_c)
+
+if(simple_parallel_C_BINDING)
+    add_subdirectory(simple_parallel_for_c)
+    add_subdirectory(example_for_c)
+endif()
 
 if(simple_parallel_ENABLE_TESTING)
     add_subdirectory(test)

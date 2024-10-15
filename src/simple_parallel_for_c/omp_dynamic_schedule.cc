@@ -1,7 +1,7 @@
 #include <simple_parallel_for_c/omp_dynamic_schedule.h>
 
 #include <array>
-#include <boost/mpi/communicator.hpp>
+#include <boost/mpi.hpp>
 #include <cassert>
 #include <cppcoro/generator.hpp>
 #include <cstddef>

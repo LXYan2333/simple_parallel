@@ -2,12 +2,22 @@ aux_source_directory(. source)
 add_library(simple_parallel OBJECT ${source})
 add_library(simple_parallel::simple_parallel ALIAS simple_parallel)
 
-target_include_directories(
-    simple_parallel 
-    PUBLIC  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
-            $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/configured_files/include>
-            $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include>
-            $<INSTALL_INTERFACE:include/${PROJECT_NAME}-${PROJECT_VERSION}>)
+target_sources(
+    simple_parallel
+    PUBLIC
+    FILE_SET    HEADERS
+    BASE_DIRS   ${PROJECT_SOURCE_DIR}/include
+                ${PROJECT_BINARY_DIR}/configured_files/include/
+    FILES       ${PROJECT_SOURCE_DIR}/include/simple_parallel/detail.h
+                ${PROJECT_SOURCE_DIR}/include/simple_parallel/dynamic_schedule.h
+                ${PROJECT_SOURCE_DIR}/include/simple_parallel/main.h
+                ${PROJECT_SOURCE_DIR}/include/simple_parallel/master.h
+                ${PROJECT_SOURCE_DIR}/include/simple_parallel/mpi_util.h
+                ${PROJECT_SOURCE_DIR}/include/simple_parallel/simple_parallel.h
+                ${PROJECT_SOURCE_DIR}/include/simple_parallel/worker.h
+                ${PROJECT_BINARY_DIR}/configured_files/include/internal_use_only/simple_parallel_config.h
+                ${PROJECT_BINARY_DIR}/configured_files/include/internal_use_only/include_concurrentqueue.h)
+
 
 target_link_libraries(
     simple_parallel
@@ -26,13 +36,19 @@ target_link_system_libraries(
     simple_parallel 
     PUBLIC  OpenMP::OpenMP_CXX
             mimalloc-obj
-            MPI::MPI_C
+            MPI::MPI_CXX
             Boost::mpi
             cppcoro::cppcoro
             Microsoft.GSL::GSL
             Boost::container
             concurrentqueue::concurrentqueue)  
 
-install(TARGETS mimalloc-obj
+# install(TARGETS mimalloc-obj
+#         EXPORT  simple_parallelTargets
+#         OBJECTS DESTINATION lib/mimalloc_for_simple_parallel)
+
+install(TARGETS simple_parallel
+                mimalloc-obj
         EXPORT  simple_parallelTargets
-        ARCHIVE DESTINATION lib/mimalloc_for_simple_parallel)
+        OBJECTS DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        FILE_SET HEADERS)
