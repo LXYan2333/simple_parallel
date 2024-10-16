@@ -69,24 +69,25 @@ configure_package_config_file(
 install(FILES       ${CMAKE_CURRENT_BINARY_DIR}/simple_parallelConfig.cmake
         DESTINATION lib/cmake/simple_parallel)
 
-if(simple_parallel_C_BINDING)
-    export(TARGETS simple_parallel
-                   simple_parallel_for_c
-                   simple_parallel_options 
-                   simple_parallel_warnings
-                   mimalloc-obj
-        NAMESPACE simple_parallel::
-        FILE simple_parallelTargets.cmake)
-else()
-    export(TARGETS simple_parallel
-                   simple_parallel_options 
-                   simple_parallel_warnings
-                   mimalloc-obj
-        NAMESPACE simple_parallel::
-        FILE simple_parallelTargets.cmake)
+if(PROJECT_IS_TOP_LEVEL)
+    if(simple_parallel_C_BINDING)
+        export(TARGETS simple_parallel
+                    simple_parallel_for_c
+                    simple_parallel_options 
+                    simple_parallel_warnings
+                    mimalloc-obj
+            NAMESPACE simple_parallel::
+            FILE simple_parallelTargets.cmake)
+    else()
+        export(TARGETS simple_parallel
+                    simple_parallel_options 
+                    simple_parallel_warnings
+                    mimalloc-obj
+            NAMESPACE simple_parallel::
+            FILE simple_parallelTargets.cmake)
+    endif()
+    export(PACKAGE simple_parallel)
 endif()
-
-export(PACKAGE simple_parallel)
 
 set(CPACK_PACKAGE_VENDOR "LXYan2333")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "a cross node parallel library")
