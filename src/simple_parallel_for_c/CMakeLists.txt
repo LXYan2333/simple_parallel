@@ -7,12 +7,12 @@ target_sources(
     PUBLIC
     FILE_SET    HEADERS
     BASE_DIRS   ${PROJECT_SOURCE_DIR}/include
-                ${PROJECT_BINARY_DIR}/configured_files/include/
+                ${CMAKE_BINARY_DIR}/configured_files/include/
     FILES       ${PROJECT_SOURCE_DIR}/include/simple_parallel_for_c/lambda.h
                 ${PROJECT_SOURCE_DIR}/include/simple_parallel_for_c/main.h
                 ${PROJECT_SOURCE_DIR}/include/simple_parallel_for_c/omp_dynamic_schedule.h
                 ${PROJECT_SOURCE_DIR}/include/simple_parallel_for_c/simple_parallel_for_c.h
-                ${PROJECT_BINARY_DIR}/configured_files/include/internal_use_only/c_omp_dynamic_schedule_buffer_size_config.h)
+                ${CMAKE_BINARY_DIR}/configured_files/include/internal_use_only/c_omp_dynamic_schedule_buffer_size_config.h)
 
 
 target_link_libraries(

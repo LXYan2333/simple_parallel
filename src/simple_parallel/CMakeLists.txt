@@ -7,7 +7,7 @@ target_sources(
     PUBLIC
     FILE_SET    HEADERS
     BASE_DIRS   ${PROJECT_SOURCE_DIR}/include
-                ${PROJECT_BINARY_DIR}/configured_files/include/
+                ${CMAKE_BINARY_DIR}/configured_files/include/
     FILES       ${PROJECT_SOURCE_DIR}/include/simple_parallel/detail.h
                 ${PROJECT_SOURCE_DIR}/include/simple_parallel/dynamic_schedule.h
                 ${PROJECT_SOURCE_DIR}/include/simple_parallel/main.h
@@ -15,8 +15,8 @@ target_sources(
                 ${PROJECT_SOURCE_DIR}/include/simple_parallel/mpi_util.h
                 ${PROJECT_SOURCE_DIR}/include/simple_parallel/simple_parallel.h
                 ${PROJECT_SOURCE_DIR}/include/simple_parallel/worker.h
-                ${PROJECT_BINARY_DIR}/configured_files/include/internal_use_only/simple_parallel_config.h
-                ${PROJECT_BINARY_DIR}/configured_files/include/internal_use_only/include_concurrentqueue.h)
+                ${CMAKE_BINARY_DIR}/configured_files/include/internal_use_only/simple_parallel_config.h
+                ${CMAKE_BINARY_DIR}/configured_files/include/internal_use_only/include_concurrentqueue.h)
 
 
 target_link_libraries(
