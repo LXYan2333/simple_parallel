@@ -2,6 +2,15 @@ aux_source_directory(. source)
 add_library(simple_parallel_for_c OBJECT ${source})
 add_library(simple_parallel::simple_parallel_for_c ALIAS simple_parallel_for_c)
 
+if(COMPILER_SUPPORTS_FBLOCKS_FLAG)
+    target_compile_options(
+        simple_parallel_for_c 
+        PUBLIC  -fblocks)
+    target_link_options(
+        simple_parallel_for_c 
+        PUBLIC  -lBlocksRuntime)
+endif()
+
 target_sources(
     simple_parallel
     PUBLIC

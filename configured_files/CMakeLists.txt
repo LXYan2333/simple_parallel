@@ -30,12 +30,6 @@ if(simple_parallel_C_BINDING)
     include(CheckCCompilerFlag)
     check_c_compiler_flag("-fblocks" COMPILER_SUPPORTS_FBLOCKS_FLAG)
     if(COMPILER_SUPPORTS_FBLOCKS_FLAG)
-        target_compile_options(
-            simple_parallel_for_c 
-            PUBLIC  -fblocks)
-        target_link_options(
-            simple_parallel_for_c 
-            PUBLIC  -lBlocksRuntime)
         try_compile(
             COMPILER_SUPPORTS_BLOCKS
             SOURCES ${PROJECT_SOURCE_DIR}/src/try_compile/test_blocks.c
