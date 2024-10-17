@@ -20,11 +20,14 @@ extern "C" {
 }
 #endif
 
+typedef struct dynamic_schedule_context dynamic_schedule_context;
+
 // clang-format off
 #ifdef _OPENMP
 #define SIMPLE_PARALLEL_C_BEGIN(_parallel_run)                                 \
     {                                                                          \
         int _s_p_mpi_size;                                                     \
+        dynamic_schedule_context *s_p_dynamic_schedule_context;                \
         MPI_Comm_size(MPI_COMM_WORLD, &_s_p_mpi_size);                         \
         const bool simple_parallel_run = _s_p_mpi_size != 1 && (_parallel_run);\
         SIMPLE_PARALLEL_LAMBDA(simple_parallel_lambda_tag, void) {             \
@@ -39,6 +42,7 @@ extern "C" {
 #define SIMPLE_PARALLEL_C_BEGIN(_parallel_run)                                 \
     {                                                                          \
         int _s_p_mpi_size;                                                     \
+        dynamic_schedule_context *s_p_dynamic_schedule_context;                \
         MPI_Comm_size(MPI_COMM_WORLD, &_s_p_mpi_size);                         \
         const bool simple_parallel_run = _s_p_mpi_size != 1 && (_parallel_run);\
         SIMPLE_PARALLEL_LAMBDA(simple_parallel_lambda_tag, void) {             \
