@@ -365,16 +365,14 @@ namespace simple_parallel::detail {
 
       private:
         std::unique_ptr<std::mutex> gen_comm_mutex;
-        std::atomic<bool>           is_first_thread{true};
+        std::once_flag              flag1;
 
       public:
         auto gen() -> cppcoro::generator<task_type> {
             if (comm_rank == 0) {
-                // exactly one master thread will wait for the server thread to
-                // connect to other ranks
-                if (is_first_thread.exchange(false)) {
+                std::call_once(flag1, [this]() {
                     one_master_thread_wait_for_server.acquire();
-                }
+                });
 
                 while (true) {
                     task_type task;
