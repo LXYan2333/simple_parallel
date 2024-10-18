@@ -70,10 +70,10 @@ extern "C" {
                                               task_buffer,                     \
                                               scheduler_func,                  \
                                               scheduler_state)                 \
-    s_p_dynamic_schedule_context = NULL; /* if compiler complain about variable s_p_dynamic_schedule_context not declared, please declare `dynamic_schedule_context *s_p_dynamic_schedule_context;` before OpenMP parallel section as a shared variable. */ \
     generator_context*               s_p_gen_context;                          \
     _Pragma("omp masked")                                                      \
     {                                                                          \
+        s_p_dynamic_schedule_context = NULL; /* if compiler complain about variable s_p_dynamic_schedule_context not declared, please declare `dynamic_schedule_context *s_p_dynamic_schedule_context;` before OpenMP parallel section as a shared variable. */ \
         s_p_dynamic_schedule_context =                                         \
             malloc(dynamic_schedule_context_size());                           \
         construct_dynamic_schedule_context(s_p_dynamic_schedule_context,       \
