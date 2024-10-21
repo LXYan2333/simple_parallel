@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <simple_parallel/detail.h>
 
 #include <bit>
@@ -64,18 +65,17 @@ namespace simple_parallel::detail {
         }
     }
 
-    auto find_avail_virtual_space_impl(void*          begin_try_ptr,
+    auto find_avail_virtual_space_impl(void*          try_ptr,
                                        size_t         length,
                                        std::ptrdiff_t increase_len,
                                        int            prot,
                                        int            flags,
                                        int            fd,
                                        off_t          offset) -> mem_area {
-        assert(begin_try_ptr != nullptr);
+        assert(try_ptr != nullptr);
         assert(length > 0);
         assert(increase_len > 0);
 
-        auto* try_ptr = static_cast<std::byte*>(begin_try_ptr);
 
         while (true) {
 
@@ -114,11 +114,12 @@ namespace simple_parallel::detail {
                 // some MPI processes found a free virtual memory while some
                 // are failed, we should unmap it
                 if (my_result) {
-                    munmap(static_cast<void*>(try_ptr), length);
+                    munmap(try_ptr, length);
                 }
             }
 
-            try_ptr += increase_len;
+            try_ptr = reinterpret_cast<void*>(
+                reinterpret_cast<uintptr_t>(try_ptr) + increase_len);
         }
     };
 
@@ -131,11 +132,11 @@ namespace simple_parallel::detail {
                         0,
                         comm);
 #else
-            size_t     remaining = area.size_bytes();
-            std::byte* data_ptr  = area.data();
+            size_t remaining = area.size_bytes();
+            auto   data_ptr  = reinterpret_cast<uintptr_t>(area.data());
 
             while (remaining > std::numeric_limits<int>::max()) [[unlikely]] {
-                MPI_Bcast(data_ptr,
+                MPI_Bcast(reinterpret_cast<void*>(data_ptr),
                           std::numeric_limits<int>::max(),
                           MPI_BYTE,
                           0,
@@ -149,7 +150,11 @@ namespace simple_parallel::detail {
 
             assert(remaining <= std::numeric_limits<int>::max());
 
-            MPI_Bcast(data_ptr, static_cast<int>(remaining), MPI_BYTE, 0, comm);
+            MPI_Bcast(reinterpret_cast<void*>(data_ptr),
+                      static_cast<int>(remaining),
+                      MPI_BYTE,
+                      0,
+                      comm);
 #endif
         }
     } // namespace
@@ -169,8 +174,8 @@ namespace simple_parallel::detail {
         if (comm.rank() != 0) {
             mem_areas.resize(mem_areas_size);
         }
-        sync_mem_area_impl({std::bit_cast<std::byte*>(mem_areas.data()),
-                            mem_areas_size * sizeof(mem_area)});
+        sync_mem_area_impl(
+            {mem_areas.data(), mem_areas_size * sizeof(mem_area)});
 
         for (const auto& area : mem_areas) {
             sync_mem_area_impl(area);

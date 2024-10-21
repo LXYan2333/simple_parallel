@@ -141,7 +141,7 @@ namespace simple_parallel {
                 map_flags,
                 -1,
                 0);
-            mem_end = &*stack.end();
+            mem_end = stack.end();
         }
 
         if (comm.rank() == 0) {
@@ -184,7 +184,7 @@ namespace simple_parallel {
                             cross_mmap_params.fd,
                             cross_mmap_params.offset);
 
-                    mem_end = &*mem.end();
+                    mem_end = mem.end();
 
                     cross_mmap_params.has_request = false;
 

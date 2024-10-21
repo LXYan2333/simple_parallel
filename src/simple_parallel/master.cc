@@ -82,8 +82,7 @@ namespace simple_parallel::master {
                 *static_cast<std::vector<mem_area>*>(mem_areas_to_send_ptr);
 
 
-            mem_areas_to_send.emplace_back(static_cast<std::byte*>(block),
-                                           block_size);
+            mem_areas_to_send.emplace_back(block, block_size);
             return true;
         };
 
@@ -134,8 +133,7 @@ namespace simple_parallel::master {
                     heap, true, &visit_block, &mem_areas_to_send);
             }
             // save the stack to `mem_areas_to_send`
-            mem_areas_to_send.emplace_back(
-                static_cast<std::byte*>(get_frame_address()), &*stack.end());
+            mem_areas_to_send.emplace_back(get_frame_address(), stack.end());
 
             detail::sync_mem_areas(mem_areas_to_send);
         }
@@ -216,7 +214,7 @@ namespace simple_parallel::master {
 
     auto register_munmaped_areas(void* ptr, size_t size) -> void {
         std::lock_guard lock{register_munmaped_area_lock};
-        munmaped_areas.emplace(static_cast<std::byte*>(ptr), size);
+        munmaped_areas.emplace(ptr, size);
     }
 
 } // namespace simple_parallel::master

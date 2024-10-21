@@ -6,12 +6,12 @@
 #include <condition_variable>
 #include <cppcoro/generator.hpp>
 #include <cstddef>
+#include <cstdint>
 #include <mimalloc.h>
 #include <mutex>
 #include <optional>
 #include <ranges>
 #include <simple_parallel/worker.h>
-#include <span>
 #include <unordered_set>
 
 
@@ -20,8 +20,36 @@ extern __thread bool       s_p_should_proxy_mmap;
 extern std::atomic<int>    s_p_comm_rank;
 
 namespace simple_parallel {
-    using mem_area = std::span<std::byte>;
-}
+    class mem_area {
+
+        void*  m_ptr;
+        size_t m_size;
+
+      public:
+        mem_area() noexcept
+            : m_ptr{nullptr},
+              m_size{0} {}
+
+        mem_area(void* ptr, size_t size) noexcept
+            : m_ptr{ptr},
+              m_size{size} {}
+
+        mem_area(void* begin, void* end) noexcept
+            : m_ptr{begin},
+              m_size{reinterpret_cast<uintptr_t>(end)
+                     - reinterpret_cast<uintptr_t>(begin)} {}
+
+        auto data() const noexcept -> void* { return m_ptr; }
+
+        auto size_bytes() const noexcept -> size_t { return m_size; }
+
+        auto size() const noexcept -> size_t { return m_size; }
+
+        auto end() const noexcept -> void* {
+            return static_cast<char*>(m_ptr) + m_size;
+        }
+    };
+} // namespace simple_parallel
 
 namespace std {
     template <>

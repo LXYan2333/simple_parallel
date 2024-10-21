@@ -110,7 +110,7 @@ namespace simple_parallel::worker {
                         MPI_Bcast(
                             &context_size, sizeof(size_t), MPI_BYTE, 0, comm);
 
-                        std::vector<std::byte> buffer;
+                        std::vector<char> buffer;
                         buffer.reserve(context_size);
                         context = buffer.data();
 
