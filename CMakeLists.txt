@@ -67,6 +67,7 @@ configure_package_config_file(
     NO_CHECK_REQUIRED_COMPONENTS_MACRO)
 
 install(FILES       ${CMAKE_CURRENT_BINARY_DIR}/simple_parallelConfig.cmake
+                    ${CMAKE_CURRENT_BINARY_DIR}/simple_parallelConfigVersion.cmake
         DESTINATION lib/cmake/simple_parallel)
 
 if(PROJECT_IS_TOP_LEVEL)
