@@ -73,10 +73,10 @@ extern "C" {
     generator_context* s_p_gen_context;                                        \
     _Pragma("omp masked")                                                      \
     {                                                                          \
-        s_p_dynamic_schedule_context = NULL; /* if compiler complain about variable s_p_dynamic_schedule_context not declared, please declare `dynamic_schedule_context *s_p_dynamic_schedule_context;` before OpenMP parallel section as a shared variable. */ \
-        s_p_dynamic_schedule_context =                                         \
+        *s_p_dynamic_schedule_context_ptr = NULL; /* if compiler complain about variable s_p_dynamic_schedule_context_ptr not declared, please declare `dynamic_schedule_context *s_p_dynamic_schedule_context;dynamic_schedule_context **s_p_dynamic_schedule_context_ptr;` before OpenMP parallel section as a shared variable. */ \
+        *s_p_dynamic_schedule_context_ptr =                                    \
             malloc(dynamic_schedule_context_size());                           \
-        construct_dynamic_schedule_context(s_p_dynamic_schedule_context,       \
+        construct_dynamic_schedule_context(*s_p_dynamic_schedule_context_ptr,  \
                                            scheduler_func,                     \
                                            scheduler_state,                    \
                                            omp_get_num_threads(),              \
@@ -85,7 +85,7 @@ extern "C" {
     _Pragma("omp barrier")                                                     \
     s_p_gen_context = malloc(thread_generator_context_buffer_size());          \
     for (construct_thread_task_generator(                                      \
-             s_p_gen_context, s_p_dynamic_schedule_context, task_buffer);      \
+             s_p_gen_context, *s_p_dynamic_schedule_context_ptr, task_buffer); \
          !thread_generator_end(s_p_gen_context);                               \
          thread_generator_next(s_p_gen_context, task_buffer)) {
 
@@ -96,7 +96,7 @@ extern "C" {
     _Pragma("omp barrier")                                                     \
     _Pragma("omp masked")                                                      \
     {                                                                          \
-        destruct_dynamic_schedule_context(s_p_dynamic_schedule_context);       \
-        free(s_p_dynamic_schedule_context);                                    \
+        destruct_dynamic_schedule_context(*s_p_dynamic_schedule_context_ptr);  \
+        free(*s_p_dynamic_schedule_context_ptr);                               \
     }
 // clang-format on
