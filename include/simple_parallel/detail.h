@@ -22,7 +22,7 @@ extern std::atomic<int>    s_p_comm_rank;
 namespace simple_parallel {
     class mem_area {
 
-        void*  m_ptr;
+        char*  m_ptr;
         size_t m_size;
 
       public:
@@ -31,23 +31,23 @@ namespace simple_parallel {
               m_size{0} {}
 
         mem_area(void* ptr, size_t size) noexcept
-            : m_ptr{ptr},
+            : m_ptr{static_cast<char*>(ptr)},
               m_size{size} {}
 
         mem_area(void* begin, void* end) noexcept
-            : m_ptr{begin},
+            : m_ptr{static_cast<char*>(begin)},
               m_size{reinterpret_cast<uintptr_t>(end)
                      - reinterpret_cast<uintptr_t>(begin)} {}
 
-        auto data() const noexcept -> void* { return m_ptr; }
+        auto data() const noexcept -> char* { return m_ptr; }
 
         auto size_bytes() const noexcept -> size_t { return m_size; }
 
         auto size() const noexcept -> size_t { return m_size; }
 
-        auto end() const noexcept -> void* {
-            return static_cast<char*>(m_ptr) + m_size;
-        }
+        auto begin() const noexcept -> char* { return m_ptr; }
+
+        auto end() const noexcept -> char* { return m_ptr + m_size; }
     };
 } // namespace simple_parallel
 

@@ -1,11 +1,12 @@
-#include <cstdint>
 #include <simple_parallel/detail.h>
 
 #include <bit>
 #include <boost/mpi.hpp>
 #include <cassert>
 #include <condition_variable>
+#include <cppcoro/generator.hpp>
 #include <cstddef>
+#include <cstdint>
 #include <dlfcn.h>
 #include <gsl/util>
 #include <internal_use_only/simple_parallel_config.h>
@@ -177,8 +178,66 @@ namespace simple_parallel::detail {
         sync_mem_area_impl(
             {mem_areas.data(), mem_areas_size * sizeof(mem_area)});
 
-        for (const auto& area : mem_areas) {
-            sync_mem_area_impl(area);
+        constexpr size_t buffer_size = 1024UZ * 1024 * 1024;
+        static_assert(buffer_size < std::numeric_limits<int>::max());
+        std::vector<char> buffer(buffer_size);
+
+        if (comm.rank() == 0) {
+            size_t remaining_buffer   = buffer.size();
+            char*  current_buffer_ptr = buffer.data();
+
+            for (const auto& mem_area : mem_areas) {
+                size_t remaining_mem_area = mem_area.size_bytes();
+                char*  src                = mem_area.begin();
+
+                while (remaining_mem_area > remaining_buffer) {
+                    std::memcpy(current_buffer_ptr, src, remaining_buffer);
+                    remaining_mem_area -= remaining_buffer;
+                    src                += remaining_buffer;
+                    MPI_Bcast(buffer.data(), buffer_size, MPI_BYTE, 0, comm);
+                    remaining_buffer   = buffer.size();
+                    current_buffer_ptr = buffer.data();
+                }
+                std::memcpy(current_buffer_ptr, src, remaining_mem_area);
+                current_buffer_ptr += remaining_mem_area;
+                remaining_buffer   -= remaining_mem_area;
+            }
+            if (remaining_buffer != buffer.size()) {
+                MPI_Bcast(buffer.data(),
+                          buffer_size - remaining_buffer,
+                          MPI_BYTE,
+                          0,
+                          comm);
+            }
+        } else {
+            size_t remaining_buffer   = 0;
+            char*  current_buffer_ptr = buffer.data();
+            size_t untransferred_data{};
+            for (const auto& i : mem_areas) {
+                untransferred_data += i.size_bytes();
+            }
+
+            for (auto& mem_area : mem_areas) {
+                size_t remaining_mem_area = mem_area.size_bytes();
+                char*  dest               = mem_area.begin();
+
+                while (remaining_mem_area > remaining_buffer) {
+                    std::memcpy(dest, current_buffer_ptr, remaining_buffer);
+                    remaining_mem_area -= remaining_buffer;
+                    dest               += remaining_buffer;
+                    MPI_Bcast(buffer.data(),
+                              std::min(buffer_size, untransferred_data),
+                              MPI_BYTE,
+                              0,
+                              comm);
+                    untransferred_data -= buffer_size;
+                    remaining_buffer    = buffer.size();
+                    current_buffer_ptr  = buffer.data();
+                }
+                std::memcpy(dest, current_buffer_ptr, remaining_mem_area);
+                current_buffer_ptr += remaining_mem_area;
+                remaining_buffer   -= remaining_mem_area;
+            }
         }
     }
 
