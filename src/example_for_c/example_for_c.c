@@ -1,5 +1,4 @@
 #include <assert.h>
-#include <mpi.h>
 #include <omp.h>
 #include <simple_parallel_for_c/main.h>
 #include <simple_parallel_for_c/omp_dynamic_schedule.h>

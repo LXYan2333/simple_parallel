@@ -13,7 +13,6 @@
 #include <internal_use_only/include_concurrentqueue.h>
 #include <latch>
 #include <memory>
-#include <mpi.h>
 #include <mutex>
 #include <ranges>
 #include <semaphore>

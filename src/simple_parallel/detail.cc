@@ -12,7 +12,6 @@
 #include <internal_use_only/simple_parallel_config.h>
 #include <limits>
 #include <mimalloc.h>
-#include <mpi.h>
 #include <mutex>
 #include <optional>
 #include <simple_parallel/mpi_util.h>

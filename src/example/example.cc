@@ -4,7 +4,6 @@
 #include <cstddef>
 #include <list>
 #include <memory>
-#include <mpi.h>
 #include <optional>
 #include <simple_parallel/detail.h>
 #include <simple_parallel/dynamic_schedule.h>

@@ -4,7 +4,6 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
-#include <mpi.h>
 #include <simple_parallel/detail.h>
 #include <type_traits>
 

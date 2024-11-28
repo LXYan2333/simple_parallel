@@ -3,7 +3,6 @@
 #include <boost/mpi.hpp>
 #include <cassert>
 #include <functional>
-#include <mpi.h>
 #include <simple_parallel/detail.h>
 #include <simple_parallel/master.h>
 #include <simple_parallel/mpi_util.h>

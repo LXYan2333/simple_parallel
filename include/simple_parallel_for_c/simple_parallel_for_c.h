@@ -27,8 +27,6 @@ typedef struct dynamic_schedule_context dynamic_schedule_context;
 #define SIMPLE_PARALLEL_C_BEGIN(_parallel_run)                                 \
     {                                                                          \
         int _s_p_mpi_size;                                                     \
-        dynamic_schedule_context *s_p_dynamic_schedule_context;                \
-        dynamic_schedule_context **s_p_dynamic_schedule_context_ptr = &s_p_dynamic_schedule_context;\
         MPI_Comm_size(MPI_COMM_WORLD, &_s_p_mpi_size);                         \
         const bool simple_parallel_run = _s_p_mpi_size != 1 && (_parallel_run);\
         SIMPLE_PARALLEL_LAMBDA(simple_parallel_lambda_tag, void) {             \

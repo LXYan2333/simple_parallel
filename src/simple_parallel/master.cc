@@ -8,7 +8,6 @@
 #include <iostream>
 #include <mimalloc.h>
 #include <mimalloc/types.h>
-#include <mpi.h>
 #include <mutex>
 #include <simple_parallel/detail.h>
 #include <simple_parallel/mpi_util.h>

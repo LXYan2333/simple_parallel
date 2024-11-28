@@ -11,7 +11,6 @@
 #include <internal_use_only/simple_parallel_config.h>
 #include <iostream>
 #include <mimalloc.h>
-#include <mpi.h>
 #include <mutex>
 #include <simple_parallel/detail.h>
 #include <simple_parallel/master.h>
