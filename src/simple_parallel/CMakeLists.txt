@@ -40,8 +40,13 @@ target_link_system_libraries(
             Boost::mpi
             cppcoro::cppcoro
             Microsoft.GSL::GSL
-            Boost::container
             concurrentqueue::concurrentqueue)  
+
+if(TARGET Boost::circular_buffer)
+    target_link_libraries(simple_parallel PUBLIC Boost::circular_buffer)
+else()
+    target_link_libraries(simple_parallel PUBLIC Boost::container)
+endif()
 
 # install(TARGETS mimalloc-obj
 #         EXPORT  simple_parallelTargets
