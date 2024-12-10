@@ -19,7 +19,6 @@
 #include <sys/mman.h>
 #include <sys/personality.h>
 #include <thread>
-#include <threads.h>
 #include <ucontext.h>
 
 
