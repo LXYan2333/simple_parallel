@@ -1,59 +1,110 @@
-aux_source_directory(. source)
-add_library(simple_parallel OBJECT ${source})
-add_library(simple_parallel::simple_parallel ALIAS simple_parallel)
+# detect page size. this needs to be a compile-time constant for performance
+add_executable(detect_page_size detect_page_size.cc)
+target_link_libraries(detect_page_size PRIVATE s_p_options)
+add_custom_command(
+    OUTPUT page_size.h
+    COMMAND detect_page_size ${CMAKE_CURRENT_BINARY_DIR}/page_size.h
+    DEPENDS detect_page_size
+    VERBATIM
+)
 
-target_sources(
-    simple_parallel
+
+add_library(s_p_init
+    init.cc
+    leader.cc
+    worker.cc
+    bigmpi.cc
+    pagemap.cc
+    $<$<BOOL:SIMPLE_PARALLEL_OVERRIDE_MAIN>:override_main.cc>
+)
+
+target_sources(s_p_init
+    PRIVATE
+    FILE_SET private_header
+    TYPE HEADERS
+    BASE_DIRS include
+    FILES 
+    include/bigmpi.h
+    include/fake_main.h
+    include/init.h
+    include/leader.h
+    include/worker.h
+    include/pagemap.h
+    include/internal_types.h
+
+    PRIVATE
+    FILE_SET private_header
+    TYPE HEADERS
+    BASE_DIRS ${CMAKE_CURRENT_BINARY_DIR}
+    FILES
+    ${CMAKE_CURRENT_BINARY_DIR}/page_size.h
+
     PUBLIC
-    FILE_SET    HEADERS
-    BASE_DIRS   ${PROJECT_SOURCE_DIR}/include
-                ${CMAKE_BINARY_DIR}/configured_files/include/
-    FILES       ${PROJECT_SOURCE_DIR}/include/simple_parallel/detail.h
-                ${PROJECT_SOURCE_DIR}/include/simple_parallel/dynamic_schedule.h
-                ${PROJECT_SOURCE_DIR}/include/simple_parallel/main.h
-                ${PROJECT_SOURCE_DIR}/include/simple_parallel/master.h
-                ${PROJECT_SOURCE_DIR}/include/simple_parallel/mpi_util.h
-                ${PROJECT_SOURCE_DIR}/include/simple_parallel/simple_parallel.h
-                ${PROJECT_SOURCE_DIR}/include/simple_parallel/worker.h
-                ${CMAKE_BINARY_DIR}/configured_files/include/internal_use_only/simple_parallel_config.h
-                ${CMAKE_BINARY_DIR}/configured_files/include/internal_use_only/include_concurrentqueue.h)
+    FILE_SET public_header
+    TYPE HEADERS
+    BASE_DIRS ${PROJECT_SOURCE_DIR}/include
+    FILES
+    ${PROJECT_SOURCE_DIR}/include/simple_parallel/cxx/simple_parallel.h
+)
 
+target_include_directories(s_p_init
+    PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+)
 
-target_link_libraries(
-    simple_parallel
-    PRIVATE $<BUILD_INTERFACE:simple_parallel::simple_parallel_options>
-            $<BUILD_INTERFACE:simple_parallel::simple_parallel_warnings>)
+target_link_libraries(s_p_init
+    PUBLIC
+    Boost::mpi
+    
+    PRIVATE
+    Boost::thread
+    s_p_options
+    s_p_warings
+    mimalloc-obj
+    Microsoft.GSL::GSL
+    hwy
+)
 
-if(NOT TARGET concurrentqueue::concurrentqueue)
-    add_library(concurrentqueue::concurrentqueue ALIAS concurrentqueue)
+set_target_properties(s_p_init
+    PROPERTIES
+    CXX_VISIBILITY_PRESET hidden
+)
+
+include(CheckCXXCompilerFlag)
+check_cxx_compiler_flag("-fopenmp-simd" HAVE_OPENMP_SIMD)
+
+if(HAVE_OPENMP_SIMD)
+    target_compile_options(s_p_init
+        PRIVATE
+        "-fopenmp-simd"
+    )
 endif()
 
-if(NOT TARGET cppcoro::cppcoro)
-    add_library(cppcoro::cppcoro ALIAS cppcoro)
+# due to https://github.com/boostorg/mpi/pull/160 these definitions is manually added
+target_compile_definitions(s_p_init
+    PRIVATE
+    MPICH_SKIP_MPICXX
+    OMPI_SKIP_MPICXX
+    _MPICC_H
+)
+
+if(SIMPLE_PARALLEL_OVERRIDE_MAIN)
+    target_link_options(s_p_init
+        INTERFACE
+        "LINKER:--wrap=__libc_start_main"
+    )
 endif()
 
-target_link_system_libraries(
-    simple_parallel 
-    PUBLIC  OpenMP::OpenMP_CXX
-            mimalloc-obj
-            MPI::MPI_CXX
-            Boost::mpi
-            cppcoro::cppcoro
-            Microsoft.GSL::GSL
-            concurrentqueue::concurrentqueue)  
+configure_file(
+    s_p_launcher.sh.in
+    s_p_launcher.sh
+    FILE_PERMISSIONS 
+    OWNER_WRITE OWNER_READ OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
+    COPYONLY
+)
 
-if(TARGET Boost::circular_buffer)
-    target_link_libraries(simple_parallel PUBLIC Boost::circular_buffer)
-else()
-    target_link_libraries(simple_parallel PUBLIC Boost::container)
-endif()
-
-# install(TARGETS mimalloc-obj
-#         EXPORT  simple_parallelTargets
-#         OBJECTS DESTINATION lib/mimalloc_for_simple_parallel)
-
-install(TARGETS simple_parallel
-                mimalloc-obj
-        EXPORT  simple_parallelTargets
-        OBJECTS DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        FILE_SET HEADERS)
+include(GNUInstallDirs)
+install(PROGRAMS
+    ${CMAKE_CURRENT_BINARY_DIR}/s_p_launcher.sh
+    DESTINATION ${CMAKE_INSTALL_BINDIR}
+)

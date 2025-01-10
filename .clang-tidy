@@ -4,20 +4,14 @@ Checks: "*,
         -altera-*,
         -android-*,
         -fuchsia-*,
-        # -google-*,
+        -google-*,
         -llvm*,
         -zircon-*,
         -readability-else-after-return,
         -readability-static-accessed-through-instance,
         -readability-avoid-const-params-in-decls,
-        -readability-identifier-length,
-        # -cppcoreguidelines-non-private-member-variables-in-classes,
+        -cppcoreguidelines-non-private-member-variables-in-classes,
         -misc-non-private-member-variables-in-classes,
-        -cppcoreguidelines-avoid-magic-numbers,
-        -readability-magic-numbers,
-        -cppcoreguidelines-pro-type-reinterpret-cast
-        -hicpp-uppercase-literal-suffix
-        -readability-uppercase-literal-suffix
 "
 WarningsAsErrors: ''
 HeaderFilterRegex: ''
@@ -25,15 +19,13 @@ FormatStyle:     none
 
 CheckOptions:
   - key: readability-identifier-length.IgnoredVariableNames
-    value: 'x|y|z'
+    value: 'x|y|z|pi|e|i|p'
   - key: readability-identifier-length.IgnoredParameterNames
-    value: 'x|y|z'
-  - key: cppcoreguidelines-avoid-do-while.IgnoreMacros
+    value: 'x|y|z|pi|e|i|p'
+  - key: readability-magic-numbers.IgnorePowersOf2IntegerValues
     value: true
-    
-
-
-
+  - key: cppcoreguidelines-avoid-magic-numbers.IgnorePowersOf2IntegerValues
+    value: true
 
 
 

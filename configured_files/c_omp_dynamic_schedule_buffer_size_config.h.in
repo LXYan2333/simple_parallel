@@ -1,4 +1,0 @@
-
-// clang-format off
-#define S_P_DEFAULT_C_TASK_BUFFER_SIZE @simple_parallel_DEFAULT_C_TASK_BUFFER_SIZE@
-// clang-format on

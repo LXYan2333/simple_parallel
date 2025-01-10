@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+# This script is used to launch the program linked to simple_parallel library.
+
+exec setarch `uname -m` -R "$@"

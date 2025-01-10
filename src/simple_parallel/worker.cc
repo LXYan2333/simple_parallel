@@ -1,142 +1,174 @@
-#include <simple_parallel/worker.h>
-
-#include <atomic>
+#include <bigmpi.h>
+#include <boost/assert.hpp>
 #include <boost/mpi.hpp>
 #include <cstddef>
-#include <simple_parallel/detail.h>
-#include <simple_parallel/mpi_util.h>
+#include <cstdio>
+#include <cstring>
+#include <exception>
+#include <init.h>
+#include <internal_types.h>
+#include <leader.h>
+#include <mpi.h>
+#include <pagemap.h>
 #include <sys/mman.h>
-#include <thread>
-#include <unistd.h>
+#include <sys/ucontext.h>
+#include <ucontext.h>
+#include <variant>
+#include <vector>
+
+#include <worker.h>
 
 namespace bmpi = boost::mpi;
-using namespace simple_parallel::detail;
-using namespace std::literals;
 
-namespace simple_parallel::worker {
-    auto worker() -> void {
+namespace {
 
-        assert(comm.rank() != 0);
+using namespace simple_parallel;
 
-        // since clang doesn't support jthread yet, we use atomic to signal
-        // the thread to exit
-        std::atomic<bool> should_exit{false};
+// reserve heap on worker process's address space to prevent other library using
+// it.
+void reserve_heap_area() {
+  int prot = PROT_NONE;
+  int flags = MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE;
+  void *ptr = nullptr;
+  size_t loop_count = 0;
+  mem_area reserved_heap = get_reserved_heap();
 
-        // since master might try to mmap at any time, we need to create a new
-        // thread to handle it
-        std::thread mmap_thread{[&] {
-            // while (!should_exit.load(std::memory_order_relaxed)) {
-            while (!should_exit.load(std::memory_order_relaxed)) {
-
-                while (auto message = mmap_comm.iprobe(0, 0)) {
-                    mmap_comm.recv(0, 0);
-
-                    void*          begin_try_ptr{};
-                    size_t         length{};
-                    std::ptrdiff_t increase_len{};
-                    int            prot{};
-                    int            flags{};
-                    int            fd{};
-                    off_t          offset{};
-
-                    static_assert(bmpi::is_mpi_datatype<size_t>());
-
-                    MPI_Bcast(
-                        &begin_try_ptr, sizeof(void*), MPI_BYTE, 0, mmap_comm);
-                    bmpi::broadcast(mmap_comm, length, 0);
-                    bmpi::broadcast(mmap_comm, increase_len, 0);
-                    bmpi::broadcast(mmap_comm, prot, 0);
-                    bmpi::broadcast(mmap_comm, flags, 0);
-                    bmpi::broadcast(mmap_comm, fd, 0);
-                    bmpi::broadcast(mmap_comm, offset, 0);
-
-                    detail::find_avail_virtual_space_impl(begin_try_ptr,
-                                                          length,
-                                                          increase_len,
-                                                          prot,
-                                                          flags,
-                                                          fd,
-                                                          offset);
-                };
-
-                std::this_thread::sleep_for(1ms);
-            }
-        }};
-
-
-        while (true) {
-
-            while (comm.iprobe(0, 0).has_value()) {
-
-                mpi_util::rpc_code code{};
-                comm.recv(0, code, code);
-                switch (code) {
-                    case mpi_util::rpc_code::init: {
-                        break;
-                    }
-                    case mpi_util::rpc_code::finalize: {
-                        should_exit.store(true, std::memory_order_relaxed);
-                        goto exit_loop;
-                    }
-                    case mpi_util::rpc_code::run_std_function: {
-
-                        std::vector<mem_area> mem_areas;
-                        detail::sync_mem_areas(mem_areas);
-
-                        std::move_only_function<void()>* f_ptr{};
-
-                        MPI_Bcast(&f_ptr, sizeof(void*), MPI_BYTE, 0, comm);
-
-
-                        (*f_ptr)();
-
-                        // free all mmaped area
-                        std::scoped_lock lock{mmaped_areas_lock};
-                        for (const auto i : mmaped_areas) {
-                            madvise(i.data(), i.size_bytes(), MADV_DONTNEED);
-                        }
-
-                        break;
-                    }
-                    case mpi_util::rpc_code::run_function_with_context: {
-                        void (*f)(void*) = nullptr;
-                        void*  context{};
-                        size_t context_size{};
-                        MPI_Bcast(static_cast<void*>(&f),
-                                  sizeof(void*),
-                                  MPI_BYTE,
-                                  0,
-                                  comm);
-                        MPI_Bcast(
-                            &context_size, sizeof(size_t), MPI_BYTE, 0, comm);
-
-                        std::vector<char> buffer;
-                        buffer.reserve(context_size);
-                        context = buffer.data();
-
-                        MPI_Bcast(context,
-                                  static_cast<int>(context_size),
-                                  MPI_BYTE,
-                                  0,
-                                  comm);
-
-                        f(context);
-
-                        break;
-                    }
-                    default: {
-                        std::cerr << "Invalid tag received in worker!\n";
-                        std::terminate();
-                    }
-                }
-            }
-
-            std::this_thread::sleep_for(1ms);
+  // try at most 16 times.
+  while (ptr != reserved_heap.data()) {
+    loop_count++;
+    ptr = mmap(reserved_heap.data(), reserved_heap.size_bytes(), prot, flags,
+               -1, 0);
+    if (ptr != reserved_heap.data()) {
+      if (ptr == MAP_FAILED) {
+        if (loop_count > 16) {
+          std::cerr << "Error: mmap reserved heap failed after 16 times, exit. "
+                       "Reason:\n";
+          perror("mmap");
+          std::terminate();
         }
-
-        // exit switch in a while loop. break is not enough
-    exit_loop:
-
-        mmap_thread.join();
+        continue;
+      } else {
+        if (loop_count > 16) {
+          std::cerr << "Error: mmap reserved heap failed after 16 times, exit. "
+                       "Reason: reserved heap is not at expected address. The "
+                       "memory address may have beed used by other library. "
+                       "Set SIMPLE_PARALLEL_RESERVED_HEAP_ADDR environment "
+                       "variable to another location can solve this problem.\n";
+          std::terminate();
+        }
+        munmap(ptr, reserved_heap.size_bytes());
+      }
     }
-} // namespace simple_parallel::worker
+  }
+}
+
+void recv_and_perform_mem_ops(const bmpi::communicator &comm, int root_rank) {
+  size_t mem_ops_size{};
+  bmpi::broadcast(comm, mem_ops_size, root_rank);
+  std::vector<mem_ops_t> mem_ops{mem_ops_size};
+  size_t byte_count = sizeof(mem_ops_t) * mem_ops.size();
+  BOOST_ASSERT(byte_count < std::numeric_limits<int>::max());
+  MPI_Bcast(mem_ops.data(), static_cast<int>(byte_count), MPI_BYTE, root_rank,
+            comm);
+  for (const auto &i : mem_ops) {
+    std::visit([](auto &&func) { func(); }, i);
+  }
+}
+
+void recv_stack(const bmpi::communicator &comm, int root_rank) {
+  MPI_Bcast(fake_stack.data(), static_cast<int>(fake_stack.size_bytes()),
+            MPI_BYTE, root_rank, comm);
+}
+
+void recv_dirty_page(const bmpi::communicator &comm, int root_rank) {
+  while (true) {
+    void *recv = nullptr;
+    MPI_Bcast(static_cast<void *>(&recv), sizeof(recv), MPI_BYTE, root_rank,
+              comm);
+    if (recv == nullptr) {
+      break;
+    }
+    size_t block_size{};
+    bmpi::broadcast(comm, block_size, root_rank);
+    bigmpi::Bcast(recv, block_size, MPI_BYTE, root_rank, comm);
+  }
+}
+
+void recv_zero_page(const bmpi::communicator &comm, int root_rank) {
+  std::vector<pte_range> zeroed_pages;
+  size_t zeroed_pages_size{};
+  bmpi::broadcast(comm, zeroed_pages_size, root_rank);
+  zeroed_pages.resize(zeroed_pages_size);
+  bigmpi::Bcast(zeroed_pages.data(), zeroed_pages_size * sizeof(pte_range),
+                MPI_BYTE, root_rank, comm);
+
+  for (const pte_range &i : zeroed_pages) {
+    mem_area mem = pgrng2memarea(i);
+    // use madvise to set memory to zero for large pages is faster than memset
+    int advice = MADV_DONTNEED;
+    if (madvise(mem.data(), mem.size_bytes(), advice) == -1) {
+      if (debug()) {
+        perror("madvise");
+      }
+      // if failed to madvice, fallback to memset
+      memset(mem.data(), 0, mem.size_bytes());
+    }
+  }
+}
+
+void recv_heap(const bmpi::communicator &comm, int root_rank) {
+  recv_dirty_page(comm, root_rank);
+  recv_zero_page(comm, root_rank);
+}
+
+void enter_parallel_impl(const bmpi::communicator &comm, int root_rank) {
+
+  recv_and_perform_mem_ops(comm, root_rank);
+
+  recv_stack(comm, root_rank);
+
+  recv_heap(comm, root_rank);
+
+  ucontext_t parallel_ctx;
+  MPI_Bcast(&parallel_ctx, sizeof(ucontext_t), MPI_BYTE, root_rank, comm);
+  swapcontext(&worker_ctx, &parallel_ctx);
+}
+
+} // namespace
+
+namespace simple_parallel {
+
+// NOLINTBEGIN(*-global-variables)
+ucontext_t worker_ctx;
+// NOLINTEND(*-global-variables)
+
+auto worker(const boost::mpi::communicator &comm, const int root_rank) -> int {
+
+  reserve_heap_area();
+
+  while (true) {
+
+    rpc_tag tag{};
+    MPI_Bcast(&tag, 1, bmpi::get_mpi_datatype<tag_type>(), root_rank, comm);
+
+    switch (tag) {
+    case rpc_tag::exit: {
+      return 0;
+    }
+    case rpc_tag::run_function_without_context: {
+      throw std::runtime_error("Not implemented.");
+      break;
+    }
+    case rpc_tag::enter_parallel: {
+      enter_parallel_impl(comm, root_rank);
+      break;
+    }
+    default: {
+      throw std::runtime_error("Unknown tag.");
+    }
+    }
+  }
+  return 0;
+}
+
+} // namespace simple_parallel

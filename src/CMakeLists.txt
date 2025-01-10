@@ -1,19 +1,8 @@
-# do not build shared library since the linker may link to system mimalloc at runtime
-set(MI_BUILD_SHARED OFF)
-set(MI_BUILD_STATIC OFF)
-set(MI_BUILD_TESTS OFF)
-set(MI_BUILD_OBJECT ON)
-set(MI_USE_CXX ON)
-add_subdirectory(mimalloc_for_simple_parallel)
+add_subdirectory(mimalloc_for_simple_parallel SYSTEM)
 
+add_subdirectory(dynamic_patch_elf)
 add_subdirectory(simple_parallel)
-add_subdirectory(example)
 
-if(simple_parallel_C_BINDING)
-    add_subdirectory(simple_parallel_for_c)
-    add_subdirectory(example_for_c)
-endif()
-
-if(simple_parallel_ENABLE_TESTING)
-    add_subdirectory(test)
+if(SIMPLE_PARALLEL_ENABLE_EXAMPLES)
+    add_subdirectory(example)
 endif()
