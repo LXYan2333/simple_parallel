@@ -1,10 +1,12 @@
 #include <boost/assert.hpp>
 #include <boost/mpi.hpp>
+#include <boost/mpi/environment.hpp>
 #include <cstddef>
 #include <cstdio>
 #include <cstdlib>
 #include <fake_main.h>
 #include <fstream>
+#include <gsl/util>
 #include <internal_types.h>
 #include <iostream>
 #include <leader.h>
@@ -31,15 +33,34 @@ using namespace simple_parallel;
 // NOLINTNEXTLINE(*-c-arrays,*non-const-global-variables)
 char fake_stack_buffer[1024 * 1024 * 16];
 
-void main_wrap(const int *argc, char **argv, char **env, int *ret) {
-  *ret = simple_parallel::original_main(*argc, argv, env);
+struct main_wrap_params {
+  const int *argc;
+  char **argv;
+  char **env;
+  int *ret;
+};
+
+void main_wrap(main_wrap_params *params) {
+  *params->ret =
+      simple_parallel::original_main(*params->argc, params->argv, params->env);
 }
 
 auto check_aslr_disabled(const bmpi::communicator &comm) -> void {
   std::ifstream filestat("/proc/self/personality");
+  if (!filestat.is_open()) {
+    std::cerr << "Failed to open /proc/self/personality\n";
+    std::terminate();
+  }
   std::string line;
   std::getline(filestat, line);
-  auto personality = std::stoull(line, nullptr, 16);
+  unsigned long long personality{};
+  try {
+    personality = std::stoull(line, nullptr, 16);
+  } catch (...) {
+    std::cerr << "Failed to parse /proc/self/personality, str: " << line
+              << '\n';
+    std::terminate();
+  }
 
   // exit if ASLR is disabled
   bool aslr_disabled = (personality & ADDR_NO_RANDOMIZE) != 0;
@@ -59,7 +80,7 @@ auto check_aslr_disabled(const bmpi::communicator &comm) -> void {
   }
 }
 void check_pagesize() {
-  auto actual_pagesize = static_cast<size_t>(sysconf(_SC_PAGE_SIZE));
+  auto actual_pagesize = gsl::narrow_cast<size_t>(sysconf(_SC_PAGE_SIZE));
   if (page_size != actual_pagesize) {
     std::cerr << "Error: page size mismatch, expect " << page_size
               << " but actual is " << actual_pagesize << '\n'
@@ -153,7 +174,7 @@ auto fake_main(int argc, char **argv, char **env) -> int {
     std::ignore = std::getchar();
   }
 
-  bmpi::environment mpi_env(argc, argv, bmpi::threading::serialized);
+  bmpi::environment mpi_env(argc, argv, bmpi::threading::funneled);
   bmpi::communicator world{};
 
   check_pagesize();
@@ -203,10 +224,12 @@ auto fake_main(int argc, char **argv, char **env) -> int {
     fake_stack_context.uc_stack.ss_size = fake_stack.size_bytes();
 
     int ret{};
+    main_wrap_params params{
+        .argc = &argc, .argv = argv, .env = env, .ret = &ret};
     // requires glibc > 2.8 to use 64bit pointers in makecontext
     // NOLINTNEXTLINE(*-vararg,*-reinterpret-cast)
-    makecontext(&fake_stack_context, reinterpret_cast<void (*)()>(main_wrap), 4,
-                &argc, argv, env, &ret);
+    makecontext(&fake_stack_context, reinterpret_cast<void (*)()>(main_wrap), 1,
+                &params);
     if (swapcontext(&fake_main_context, &fake_stack_context) == -1) {
       perror("swapcontext");
       return 1;

@@ -3,6 +3,7 @@
 #include <boost/mpi.hpp>
 #include <internal_types.h>
 #include <optional>
+#include <simple_parallel/cxx/types_fwd.h>
 
 namespace simple_parallel {
 

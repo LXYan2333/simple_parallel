@@ -1,7 +1,7 @@
 #pragma once
 
-#include <span>
+#include <simple_parallel/cxx/types_fwd.h>
 
 namespace simple_parallel {
-using mem_area = std::span<char>;
+
 }

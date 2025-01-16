@@ -45,6 +45,7 @@ target_sources(s_p_init
     BASE_DIRS ${PROJECT_SOURCE_DIR}/include
     FILES
     ${PROJECT_SOURCE_DIR}/include/simple_parallel/cxx/simple_parallel.h
+    ${PROJECT_SOURCE_DIR}/include/simple_parallel/cxx/types_fwd.h
 )
 
 target_include_directories(s_p_init
@@ -69,16 +70,6 @@ set_target_properties(s_p_init
     PROPERTIES
     CXX_VISIBILITY_PRESET hidden
 )
-
-include(CheckCXXCompilerFlag)
-check_cxx_compiler_flag("-fopenmp-simd" HAVE_OPENMP_SIMD)
-
-if(HAVE_OPENMP_SIMD)
-    target_compile_options(s_p_init
-        PRIVATE
-        "-fopenmp-simd"
-    )
-endif()
 
 # due to https://github.com/boostorg/mpi/pull/160 these definitions is manually added
 target_compile_definitions(s_p_init

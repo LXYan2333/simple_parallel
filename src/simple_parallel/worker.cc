@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <cstring>
 #include <exception>
+#include <gsl/util>
 #include <init.h>
 #include <internal_types.h>
 #include <leader.h>
@@ -68,15 +69,15 @@ void recv_and_perform_mem_ops(const bmpi::communicator &comm, int root_rank) {
   std::vector<mem_ops_t> mem_ops{mem_ops_size};
   size_t byte_count = sizeof(mem_ops_t) * mem_ops.size();
   BOOST_ASSERT(byte_count < std::numeric_limits<int>::max());
-  MPI_Bcast(mem_ops.data(), static_cast<int>(byte_count), MPI_BYTE, root_rank,
-            comm);
+  MPI_Bcast(mem_ops.data(), gsl::narrow_cast<int>(byte_count), MPI_BYTE,
+            root_rank, comm);
   for (const auto &i : mem_ops) {
     std::visit([](auto &&func) { func(); }, i);
   }
 }
 
 void recv_stack(const bmpi::communicator &comm, int root_rank) {
-  MPI_Bcast(fake_stack.data(), static_cast<int>(fake_stack.size_bytes()),
+  MPI_Bcast(fake_stack.data(), gsl::narrow_cast<int>(fake_stack.size_bytes()),
             MPI_BYTE, root_rank, comm);
 }
 

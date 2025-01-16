@@ -60,10 +60,13 @@ struct madvise_params {
   int advice;
 
   void operator()() const {
-    madvise(addr, len, advice);
 #ifndef NDEBUG
     // only terminate in debug since madvise failure is usually harmless
-    std::terminate();
+    if (madvise(addr, len, MADV_NORMAL) == -1) {
+      std::terminate();
+    }
+#else
+    madvise(addr, len, advice);
 #endif
   }
 };

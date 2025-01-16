@@ -1,15 +1,17 @@
 #pragma once
 
+#include <boost/assert.hpp>
 #include <cstddef>
 #include <cstdint>
 #include <internal_types.h>
+#include <memory>
+#include <optional>
 #include <page_size.h>
+#include <simple_parallel/cxx/types_fwd.h>
 #include <span>
 #include <sys/types.h>
 
 namespace simple_parallel {
-
-using pgnum = size_t;
 
 // https://www.kernel.org/doc/html/latest/admin-guide/mm/pagemap.html
 class pte {
@@ -39,20 +41,9 @@ public:
   explicit operator entry_t() const { return m_entry; }
 };
 
-struct pte_range {
-  pgnum begin;
-  size_t count;
-};
-
 // clear the soft dirty bit of all pages so we can trace written pages and
 // eliminate unnecessary synchronization when enter parallel context
 void clear_soft_dirty();
-
-auto addr2pgnum(void *addr) -> pgnum;
-
-auto memarea2pgrng(mem_area area) -> pte_range;
-
-auto pgrng2memarea(pte_range range) -> mem_area;
 
 inline auto pgnum2memarea(pgnum page_num) -> mem_area {
   // NOLINTNEXTLINE(*-reinterpret-cast,performance-no-int-to-ptr)
@@ -63,37 +54,33 @@ void get_pte(pte_range range, std::span<uint64_t>);
 
 auto get_pte(pgnum page_num) -> pte;
 
-// https://godbolt.org/z/e6Y4jGKvG
-[[deprecated("Performance critical, reimplement in leader.cc using SIMD")]]
-inline auto is_zeroed_pg(pgnum page_num) -> bool {
+inline auto addr2pgnum(void *addr) -> pgnum {
+  // NOLINTNEXTLINE(*-reinterpret-cast)
+  return reinterpret_cast<size_t>(addr) / page_size;
+}
 
-  static_assert(page_size % sizeof(uint64_t) == 0);
+inline auto memarea2pgrng(mem_area area) -> pte_range {
+  BOOST_ASSERT(area.size() != 0);
+  const pgnum begin = addr2pgnum(area.data());
+  const pgnum end = addr2pgnum(&area.back()) + 1;
+  return {.begin = begin, .count = end - begin};
+}
 
-  // NOLINTNEXTLINE
-  const auto *begin = reinterpret_cast<uint64_t *>(page_size * page_num);
-  const size_t size = page_size / sizeof(uint64_t);
-
-  // fast test
-  // NOLINTNEXTLINE
-  if (begin[0] != 0) {
-    return false;
+inline auto memarea2innerpgrng(mem_area area) -> std::optional<pte_range> {
+  BOOST_ASSERT(area.size() != 0);
+  const pgnum begin = addr2pgnum(area.data()) + 1;
+  const pgnum end = addr2pgnum(std::to_address(area.end())) - 1;
+  if (begin >= end) {
+    return std::nullopt;
   }
+  return {{.begin = begin, .count = end - begin}};
+}
 
-  // check the full page
-  // clang can vectorize this loop quite well, but gcc needs guide and correct
-  // march flag (and still perform worse than clang, and even fail to vectorize
-  // it after gcc14)
-  bool res = true;
-#pragma omp simd reduction(and : res)
-  for (size_t i = 0; i < size; ++i) {
-    // this seems redundant, but we need this to make gcc happy
-    // NOLINTNEXTLINE
-    if (begin[i] != 0) {
-      // can not return here, or auto vectorization will fail
-      res = false;
-    }
-  }
-  return res;
+inline auto pgrng2memarea(pte_range range) -> mem_area {
+  // NOLINTNEXTLINE(*-reinterpret-cast,performance-no-int-to-ptr)
+  char *begin = reinterpret_cast<char *>(range.begin * page_size);
+  size_t size = range.count * page_size;
+  return {begin, size};
 }
 
 } // namespace simple_parallel

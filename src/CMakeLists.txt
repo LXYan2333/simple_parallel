@@ -1,3 +1,6 @@
+set(MI_BUILD_SHARED OFF)
+set(MI_BUILD_STATIC OFF)
+set(MI_BUILD_OBJECT ON)
 add_subdirectory(mimalloc_for_simple_parallel SYSTEM)
 
 add_subdirectory(dynamic_patch_elf)
