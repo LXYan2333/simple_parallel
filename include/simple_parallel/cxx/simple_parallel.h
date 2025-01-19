@@ -44,9 +44,6 @@ public:
     m_count = view.size();
     init_inner_pages(m_inner_pages);
   }
-  reduce_area()
-      : m_begin(nullptr), m_count(0), m_type(MPI_BYTE), m_op(MPI_NO_OP),
-        m_sizeof_type(1) {}
 
   reduce_area(MPI_Datatype type, void *begin, size_t count, MPI_Op op)
       : m_begin(begin), m_count(count), m_type(type), m_op(op) {
@@ -71,8 +68,10 @@ private:
 
 protected:
   explicit par_ctx_base(std::span<const reduce_area> reduces = {});
+  void set_reduces(std::span<const reduce_area> reduces);
   void do_enter_parallel(bool enter_parallel);
-  ~par_ctx_base();
+  void do_exit_parallel();
+  ~par_ctx_base() = default;
 
 public:
   // non-copyable and non-moveable
@@ -88,6 +87,11 @@ template <size_t reduces_size> class par_ctx : public par_ctx_base {
   std::array<reduce_area, reduces_size> m_reduces;
 
 public:
+  par_ctx(const par_ctx &) = delete;
+  par_ctx(par_ctx &&) = delete;
+  auto operator=(const par_ctx &) -> par_ctx & = delete;
+  auto operator=(par_ctx &&) -> par_ctx & = delete;
+
   explicit par_ctx(bool enter_parallel = true) {
     do_enter_parallel(enter_parallel);
   }
@@ -98,6 +102,8 @@ public:
       : par_ctx_base(m_reduces), m_reduces(std::array{reduces...}) {
     do_enter_parallel(enter_parallel);
   }
+
+  ~par_ctx() { do_exit_parallel(); }
 };
 
 explicit par_ctx(bool enter_parallel = true) -> par_ctx<0>;

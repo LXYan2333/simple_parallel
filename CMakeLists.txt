@@ -8,12 +8,17 @@ project(simple_parallel VERSION 1.0.0 LANGUAGES CXX)
 
 # options
 option(SIMPLE_PARALLEL_OVERRIDE_MAIN "Override main using ld's --wrap option" ON)
+option(SIMPLE_PARALLEL_C_BINDING "Enable C binding" ON)
 option(SIMPLE_PARALLEL_ENABLE_EXAMPLES "Enable examples" OFF)
 
 # advance options
 option(SIMPLE_PARALLEL_WARNING "Enable warnings" OFF)
 option(SIMPLE_PARALLEL_WARNING_AS_ERROR "Enable warning as error" OFF)
 mark_as_advanced(SIMPLE_PARALLEL_WARNING SIMPLE_PARALLEL_WARNING_AS_ERROR)
+
+if(SIMPLE_PARALLEL_C_BINDING)
+    enable_language(C)
+endif()
 
 add_library(s_p_warings INTERFACE)
 add_library(simple_parallel::s_p_warings ALIAS s_p_warings)

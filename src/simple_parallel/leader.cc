@@ -544,6 +544,10 @@ void par_ctx_base::verify_reduces_no_overlap() const {
   }
 }
 
+void par_ctx_base::set_reduces(std::span<const reduce_area> reduces) {
+  m_reduces = reduces;
+};
+
 void par_ctx_base::do_enter_parallel(bool enter_parallel) {
   if (!enter_parallel or m_comm.size() == 1) {
     this->m_comm = s_p_comm_self.value();
@@ -588,7 +592,7 @@ void par_ctx_base::do_enter_parallel(bool enter_parallel) {
   }
 }
 
-par_ctx_base::~par_ctx_base() {
+void par_ctx_base::do_exit_parallel() {
   if (m_comm.size() > 1) {
     for (const reduce_area &reduce : m_reduces) {
       if (reduce.all_reduce(m_comm) != MPI_SUCCESS) {

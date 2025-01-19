@@ -56,9 +56,11 @@ target_include_directories(s_p_init
 target_link_libraries(s_p_init
     PUBLIC
     Boost::mpi
+    MPI::MPI_CXX
     
     PRIVATE
     Boost::thread
+    Boost::headers
     s_p_options
     s_p_warings
     mimalloc-obj
@@ -69,14 +71,6 @@ target_link_libraries(s_p_init
 set_target_properties(s_p_init
     PROPERTIES
     CXX_VISIBILITY_PRESET hidden
-)
-
-# due to https://github.com/boostorg/mpi/pull/160 these definitions is manually added
-target_compile_definitions(s_p_init
-    PRIVATE
-    MPICH_SKIP_MPICXX
-    OMPI_SKIP_MPICXX
-    _MPICC_H
 )
 
 if(SIMPLE_PARALLEL_OVERRIDE_MAIN)

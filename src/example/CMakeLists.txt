@@ -6,3 +6,12 @@ target_link_libraries(cxx_example
     s_p_init
     mimalloc-obj
 )
+
+add_executable(c_example
+    c_example.c
+)
+target_link_libraries(c_example
+    PRIVATE
+    s_p_c_binding
+    mimalloc-obj
+)
