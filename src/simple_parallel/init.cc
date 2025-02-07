@@ -6,7 +6,7 @@
 #include <cstdlib>
 #include <fake_main.h>
 #include <fstream>
-#include <gsl/util>
+#include <gsl/gsl>
 #include <internal_types.h>
 #include <iostream>
 #include <leader.h>
@@ -174,8 +174,29 @@ auto fake_main(int argc, char **argv, char **env) -> int {
     std::ignore = std::getchar();
   }
 
-  bmpi::environment mpi_env(argc, argv, bmpi::threading::funneled);
+  auto *mpi_env = new std::optional<bmpi::environment>{
+      std::in_place, argc, argv, bmpi::threading::funneled};
+  auto del_mpi_env = gsl::finally([&]() { mpi_env->reset(); });
   bmpi::communicator world{};
+
+  // If the program calls exit(), the destructor of mpi_env will not be called
+  // and MPI will complain about it. Destruct it manually in this case.
+  struct exit_work_param {
+    std::optional<bmpi::environment> *env;
+  };
+  auto exit_work = +[](int, void *param_v) {
+    // NOLINTNEXTLINE(*use-auto)
+    gsl::owner<exit_work_param *> param =
+        static_cast<gsl::owner<exit_work_param *>>(param_v);
+    if (param->env->has_value()) {
+      finished = true;
+      send_rpc_tag(rpc_tag::exit, 0, s_p_comm.value());
+      param->env->reset();
+    }
+    delete param;
+  };
+  on_exit(exit_work,
+          gsl::owner<exit_work_param *>{new exit_work_param{.env = mpi_env}});
 
   check_pagesize();
 
