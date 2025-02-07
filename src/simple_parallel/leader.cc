@@ -18,6 +18,7 @@
 #include <init.h>
 #include <initializer_list>
 #include <internal_types.h>
+#include <map>
 #include <mimalloc.h>
 #include <mimalloc/simple_parallel.h>
 #include <mpi.h>
@@ -445,13 +446,6 @@ void reduce_area::init_reduce_area_on_worker() const {
       MPI_INT16_T,  MPI_INT32_T,  MPI_INT64_T, MPI_UINT8_T,
       MPI_UINT16_T, MPI_UINT32_T, MPI_UINT64_T};
 
-  const bool is_zero_init_when_sum = std::ranges::any_of(
-      zero_init_types, [this](MPI_Datatype e) -> bool { return e == m_type; });
-  if (is_zero_init_when_sum and m_op == MPI_SUM) {
-    std::memset(m_begin, 0, m_count * gsl::narrow_cast<size_t>(m_sizeof_type));
-    return;
-  };
-
   static const std::map<const MPI_Op, const char *> op_2_name{
       {MPI_OP_NULL, "MPI_OP_NULL"}, {MPI_MAX, "MPI_MAX"},
       {MPI_MIN, "MPI_MIN"},         {MPI_SUM, "MPI_SUM"},
@@ -461,6 +455,25 @@ void reduce_area::init_reduce_area_on_worker() const {
       {MPI_BXOR, "MPI_BXOR"},       {MPI_MINLOC, "MPI_MINLOC"},
       {MPI_MAXLOC, "MPI_MAXLOC"},   {MPI_REPLACE, "MPI_REPLACE"}};
 
+  auto not_support = [&]() {
+    std::array<char, MPI_MAX_OBJECT_NAME + 1> type_name{};
+    int len{};
+    MPI_Type_get_name(m_type, type_name.data(), &len);
+
+    std::cerr << "Error: Reduce " << type_name.data() << " with MPI Operation "
+              << op_2_name.at(m_op)
+              << " is not supported by simple_parallel. You can manually call "
+                 "`MPI_Reduce` to reduce your array.\n";
+    std::terminate();
+  };
+
+  const bool is_zero_init_when_sum = std::ranges::any_of(
+      zero_init_types, [this](MPI_Datatype e) -> bool { return e == m_type; });
+  if (is_zero_init_when_sum and m_op == MPI_SUM) {
+    std::memset(m_begin, 0, m_count * gsl::narrow_cast<size_t>(m_sizeof_type));
+    return;
+  };
+
   if (m_type == MPI_C_BOOL) {
     BOOST_ASSERT(m_sizeof_type == 1);
     int identity{};
@@ -469,24 +482,14 @@ void reduce_area::init_reduce_area_on_worker() const {
     } else if (m_op == MPI_LOR) {
       identity = 0;
     } else {
-      // NOLINTNEXTLINE
-      goto not_support;
+      not_support();
     }
     std::memset(m_begin, identity,
                 m_count * gsl::narrow_cast<size_t>(m_sizeof_type));
     return;
   }
 
-not_support:
-  std::array<char, MPI_MAX_OBJECT_NAME + 1> type_name{};
-  int len{};
-  MPI_Type_get_name(m_type, type_name.data(), &len);
-
-  std::cerr << "Error: Reduce " << type_name.data() << " with MPI Operation "
-            << op_2_name.at(m_op)
-            << " is not supported by simple_parallel. You can manually call "
-               "`MPI_Reduce` to reduce your array.\n";
-  std::terminate();
+  not_support();
 };
 
 void send_rpc_tag(rpc_tag tag, int root_rank, const MPI_Comm &comm) {
