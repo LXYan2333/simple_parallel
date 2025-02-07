@@ -63,13 +63,35 @@ inline auto memarea2pgrng(mem_area area) -> pte_range {
   BOOST_ASSERT(area.size() != 0);
   const pgnum begin = addr2pgnum(area.data());
   const pgnum end = addr2pgnum(&area.back()) + 1;
+
+  // NOLINTBEGIN
+  BOOST_ASSERT(begin * page_size <= reinterpret_cast<size_t>(area.data()));
+  BOOST_ASSERT((begin + 1) * page_size > reinterpret_cast<size_t>(area.data()));
+
+  BOOST_ASSERT(end * page_size >=
+               reinterpret_cast<size_t>(std::to_address(area.end())));
+  BOOST_ASSERT((end - 1) * page_size <
+               reinterpret_cast<size_t>(std::to_address(area.end())));
+  // NOLINTEND
+
   return {.begin = begin, .count = end - begin};
 }
 
 inline auto memarea2innerpgrng(mem_area area) -> std::optional<pte_range> {
   BOOST_ASSERT(area.size() != 0);
-  const pgnum begin = addr2pgnum(area.data()) + 1;
-  const pgnum end = addr2pgnum(std::to_address(area.end())) - 1;
+  const pgnum begin = addr2pgnum(area.data() - 1) + 1;
+  const pgnum end = addr2pgnum(std::to_address(area.end()));
+
+  // NOLINTBEGIN
+  BOOST_ASSERT(begin * page_size >= reinterpret_cast<size_t>(area.data()));
+  BOOST_ASSERT((begin - 1) * page_size < reinterpret_cast<size_t>(area.data()));
+
+  BOOST_ASSERT(end * page_size <=
+               reinterpret_cast<size_t>(std::to_address(area.end())));
+  BOOST_ASSERT((end + 1) * page_size >
+               reinterpret_cast<size_t>(std::to_address(area.end())));
+  // NOLINTEND
+
   if (begin >= end) {
     return std::nullopt;
   }
