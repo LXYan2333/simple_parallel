@@ -1,0 +1,16 @@
+
+@PACKAGE_INIT@
+
+if(CMAKE_VERSION VERSION_LESS "3.25.0")
+   message(FATAL_ERROR "CMake >= 3.25.0 required")
+endif()
+
+include(CMakeFindDependencyMacro)
+
+find_dependency(Boost REQUIRED COMPONENTS mpi headers thread)
+set(MPI_CXX_SKIP_MPICXX ON)
+find_dependency(MPI REQUIRED)
+find_package(Microsoft.GSL REQUIRED)
+find_package(HWY REQUIRED)
+
+include("${CMAKE_CURRENT_LIST_DIR}/simple_parallelTargets.cmake")

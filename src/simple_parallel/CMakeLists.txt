@@ -17,6 +17,7 @@ add_library(s_p_init
     pagemap.cc
     $<$<BOOL:SIMPLE_PARALLEL_OVERRIDE_MAIN>:override_main.cc>
 )
+add_library(simple_parallel::s_p_init ALIAS s_p_init)
 
 target_sources(s_p_init
     PRIVATE

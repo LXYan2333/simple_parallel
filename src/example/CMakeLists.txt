@@ -3,15 +3,28 @@ add_executable(cxx_example
 )
 target_link_libraries(cxx_example
     PRIVATE
-    s_p_init
+    simple_parallel::s_p_init
     mimalloc-obj
 )
 
-add_executable(c_example
-    c_example.c
-)
-target_link_libraries(c_example
-    PRIVATE
-    s_p_c_binding
-    mimalloc-obj
-)
+if(SIMPLE_PARALLEL_C_BINDING)
+    add_executable(c_example
+        c_example.c
+    )
+    target_link_libraries(c_example
+        PRIVATE
+        simple_parallel::s_p_c_binding
+        mimalloc-obj
+    )
+endif()
+
+if(SIMPLE_PARALLEL_Fortran_BINDING)
+    add_executable(fortran_example
+        fortran_example.f90
+    )
+    target_link_libraries(fortran_example
+        PRIVATE
+        simple_parallel::s_p_fortran_binding
+        mimalloc-obj
+    )
+endif()
