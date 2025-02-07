@@ -1,5 +1,7 @@
+#include <mpi.h>
 #include <simple_parallel/c/c_binding.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -10,9 +12,7 @@ int main() {
     heap_test[i] = 10 - i;
   }
 
-  s_p_reduce_area reduces[] = {{MPI_DOUBLE, stack_test, 10, MPI_SUM},
-                               {MPI_DOUBLE, heap_test, 10, MPI_SUM}};
-  s_p_par_ctx ctx = s_p_construct_par_ctx(true, reduces, 2);
+  S_P_PAR_BEGIN(true, ctx, (stack_test, 10, MPI_SUM), (heap_test, 10, MPI_SUM))
 
   int my_rank = 0;
   int world_size = 0;
@@ -43,7 +43,7 @@ int main() {
     heap_test[i] += 3;
   }
 
-  s_p_destruct_par_ctx(&ctx);
+  S_P_PAR_END(ctx)
 
   printf("Exited parallel context\n");
   printf("stack_test: ");
