@@ -1,9 +1,9 @@
 #include <boost/assert.hpp>
 #include <boost/mpi.hpp>
-#include <boost/mpi/environment.hpp>
 #include <cstddef>
 #include <cstdio>
 #include <cstdlib>
+#include <exception>
 #include <fake_main.h>
 #include <fstream>
 #include <gsl/gsl>
@@ -14,8 +14,10 @@
 #include <mpi.h>
 #include <optional>
 #include <pagemap.h>
+#include <sched.h>
 #include <sys/mman.h>
 #include <sys/personality.h>
+#include <thread>
 #include <tuple>
 #include <ucontext.h>
 #include <unistd.h>
@@ -86,6 +88,32 @@ void check_pagesize() {
               << " but actual is " << actual_pagesize << '\n'
               << "You must recompile simple_parallel again on this machine. "
                  "CMake will detect the correct page size automatically.\n";
+    std::terminate();
+  }
+}
+
+auto get_avail_cpu_count() -> size_t {
+  cpu_set_t set;
+  if (sched_getaffinity(0, sizeof(set), &set) == -1) {
+    perror("sched_getaffinity");
+    std::terminate();
+  };
+  auto cpusetsize = static_cast<size_t>(CPU_COUNT(&set));
+  return cpusetsize;
+};
+
+void check_cpu_binding(int rank) {
+  // NOLINTNEXTLINE(concurrency-mt-unsafe)
+  if (getenv("SIMPLE_PARALLEL_SKIP_CORE_BIND_CHECK") != nullptr) {
+    return;
+  }
+  if (get_avail_cpu_count() <= 2 && std::thread::hardware_concurrency() > 2) {
+    // clang-format off
+    std::cerr << "Error: CPU avaliable to rank " << rank << " is restricted. This process will not be able to take advantage of all CPU cores.\n"
+                 "Usually this is caused by OpenMPI, which bind process to one core by default. see https://docs.open-mpi.org/en/v5.0.x/man-openmpi/man1/mpirun.1.html#quick-summary\n"
+                 "This can be easily solved by adding `--bind-to none` to mpirun argument\n"
+                 "If you believe this is a false positive error, please set SIMPLE_PARALLEL_SKIP_CORE_BIND_CHECK environment variable to any value.\n";
+    // clang-format on
     std::terminate();
   }
 }
@@ -202,6 +230,8 @@ auto fake_main(int argc, char **argv, char **env) -> int {
 
   s_p_comm = {world, bmpi::comm_duplicate};
   s_p_comm_self = {MPI_COMM_SELF, bmpi::comm_duplicate};
+
+  check_cpu_binding(s_p_comm->rank());
 
   if (world_size_char == nullptr || world_rank_char == nullptr) {
     if (world.size() > 1) {

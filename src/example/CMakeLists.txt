@@ -5,6 +5,7 @@ target_link_libraries(cxx_example
     PRIVATE
     simple_parallel::s_p_init
     mimalloc-obj
+    OpenMP::OpenMP_CXX
 )
 
 if(SIMPLE_PARALLEL_C_BINDING)

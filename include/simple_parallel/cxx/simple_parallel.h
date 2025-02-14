@@ -3,12 +3,15 @@
 #include <array>
 #include <boost/mpi.hpp>
 #include <cstddef>
+#include <exception>
+#include <memory>
 #include <mpi.h>
 #include <mutex>
 #include <optional>
 #include <ranges>
 #include <simple_parallel/cxx/types_fwd.h>
 #include <span>
+#include <type_traits>
 #include <ucontext.h>
 
 namespace simple_parallel {
@@ -34,14 +37,33 @@ private:
   explicit operator mem_area() const;
 
 public:
-  template <std::ranges::range T>
-    requires bmpi::is_mpi_builtin_datatype<std::ranges::range_value_t<T>>::value
-  reduce_area(T &area, MPI_Op op)
-      : m_type(bmpi::get_mpi_datatype<std::ranges::range_value_t<T>>()),
-        m_op(op), m_sizeof_type(sizeof(std::ranges::range_value_t<T>)) {
-    std::span view{area};
-    m_begin = view.data();
-    m_count = view.size();
+  template <std::ranges::range rng>
+    requires bmpi::is_mpi_builtin_datatype<
+                 std::ranges::range_value_t<rng>>::value &&
+                 std::ranges::contiguous_range<rng> &&
+                 std::ranges::sized_range<rng>
+  reduce_area(rng &area, MPI_Op op)
+      : m_begin(std::ranges::data(area)), m_count(std::ranges::size(area)),
+        m_type(bmpi::get_mpi_datatype<std::ranges::range_value_t<rng>>()),
+        m_op(op), m_sizeof_type(sizeof(std::ranges::range_value_t<rng>)) {
+    init_inner_pages(m_inner_pages);
+  }
+
+  template <typename T>
+    requires bmpi::is_mpi_builtin_datatype<T>::value
+  reduce_area(std::span<T> area, MPI_Op op)
+      : m_begin(area.data()), m_count(area.size()),
+        m_type(bmpi::get_mpi_datatype<std::remove_reference_t<T>>()), m_op(op),
+        m_sizeof_type(sizeof(T)) {
+    init_inner_pages(m_inner_pages);
+  }
+
+  template <typename T>
+    requires bmpi::is_mpi_builtin_datatype<T>::value
+  reduce_area(T &value, MPI_Op op)
+      : m_begin(std::addressof(value)), m_count(1),
+        m_type(bmpi::get_mpi_datatype<std::remove_reference_t<T>>()), m_op(op),
+        m_sizeof_type(sizeof(T)) {
     init_inner_pages(m_inner_pages);
   }
 
@@ -55,7 +77,7 @@ class par_ctx_base {
 private:
   ucontext_t m_parallel_ctx;
   ucontext_t m_sync_mem_ctx;
-  bmpi::communicator &m_comm;
+  bmpi::communicator *m_comm;
   static constexpr int m_root_rank = 0;
 
   // trying to create multiple par_ctx_impl is not allowed

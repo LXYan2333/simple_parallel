@@ -77,6 +77,9 @@ endif()
 find_package(Boost REQUIRED COMPONENTS mpi headers thread)
 find_package(Microsoft.GSL REQUIRED)
 find_package(HWY REQUIRED)
+if(SIMPLE_PARALLEL_ENABLE_EXAMPLES)
+    find_package(OpenMP REQUIRED)
+endif()
 
 # clone git submodules if they are not present
 find_package(Git QUIET)

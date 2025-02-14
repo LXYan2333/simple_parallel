@@ -47,6 +47,7 @@ target_sources(s_p_init
     FILES
     ${PROJECT_SOURCE_DIR}/include/simple_parallel/cxx/simple_parallel.h
     ${PROJECT_SOURCE_DIR}/include/simple_parallel/cxx/types_fwd.h
+    ${PROJECT_SOURCE_DIR}/include/simple_parallel/cxx/dynamic_schedule.h
 )
 
 target_include_directories(s_p_init
@@ -56,12 +57,12 @@ target_include_directories(s_p_init
 
 target_link_libraries(s_p_init
     PUBLIC
+    Boost::headers
     Boost::mpi
     MPI::MPI_CXX
     
     PRIVATE
     Boost::thread
-    Boost::headers
     s_p_options
     s_p_warings
     mimalloc-obj

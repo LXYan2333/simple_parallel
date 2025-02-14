@@ -442,9 +442,11 @@ auto reduce_area::all_reduce(const bmpi::communicator &comm) const -> int {
 void reduce_area::init_reduce_area_on_worker() const {
 
   static const std::array zero_init_types = {
-      MPI_INT,      MPI_FLOAT,    MPI_DOUBLE,  MPI_INT8_T,
-      MPI_INT16_T,  MPI_INT32_T,  MPI_INT64_T, MPI_UINT8_T,
-      MPI_UINT16_T, MPI_UINT32_T, MPI_UINT64_T};
+      MPI_SHORT,         MPI_INT,       MPI_LONG,     MPI_UNSIGNED_LONG,
+      MPI_LONG_LONG_INT, MPI_LONG_LONG, MPI_FLOAT,    MPI_DOUBLE,
+      MPI_LONG_DOUBLE,   MPI_INT8_T,    MPI_INT16_T,  MPI_INT32_T,
+      MPI_INT64_T,       MPI_UINT8_T,   MPI_UINT16_T, MPI_UINT32_T,
+      MPI_UINT64_T};
 
   static const std::map<const MPI_Op, const char *> op_2_name{
       {MPI_OP_NULL, "MPI_OP_NULL"}, {MPI_MAX, "MPI_MAX"},
@@ -463,7 +465,7 @@ void reduce_area::init_reduce_area_on_worker() const {
     std::cerr << "Error: Reduce " << type_name.data() << " with MPI Operation "
               << op_2_name.at(m_op)
               << " is not supported by simple_parallel. You can manually call "
-                 "`MPI_Reduce` to reduce your array.\n";
+                 "`MPI_Reduce` to reduce your array/value.\n";
     std::terminate();
   };
 
@@ -499,7 +501,7 @@ void send_rpc_tag(rpc_tag tag, int root_rank, const MPI_Comm &comm) {
 
 // NOLINTNEXTLINE(*-member-init)
 par_ctx_base::par_ctx_base(std::span<const reduce_area> reduces)
-    : m_comm(s_p_comm.value()), m_reduces(reduces) {
+    : m_comm(&s_p_comm.value()), m_reduces(reduces) {
   BOOST_ASSERT(!finished);
 }
 
@@ -552,8 +554,8 @@ void par_ctx_base::set_reduces(std::span<const reduce_area> reduces) {
 };
 
 void par_ctx_base::do_enter_parallel(bool enter_parallel) {
-  if (!enter_parallel or m_comm.size() == 1) {
-    this->m_comm = s_p_comm_self.value();
+  if (!enter_parallel or m_comm->size() == 1) {
+    m_comm = &s_p_comm_self.value();
     return;
   }
   if (getcontext(&m_sync_mem_ctx) == -1) {
@@ -566,7 +568,7 @@ void par_ctx_base::do_enter_parallel(bool enter_parallel) {
 
   // there is no type check in `makecontext`, better to use a struct to pass
   // params
-  enter_parallel_impl_params params{.comm = &m_comm,
+  enter_parallel_impl_params params{.comm = m_comm,
                                     .root_rank = &m_root_rank,
                                     .parallel_ctx = &m_parallel_ctx,
                                     .reduces = m_reduces};
@@ -585,10 +587,10 @@ void par_ctx_base::do_enter_parallel(bool enter_parallel) {
   }
 
   if (debug()) {
-    Expects(m_comm.rank() == get_mpi_info_from_env().world_rank);
+    Expects(m_comm->rank() == get_mpi_info_from_env().world_rank);
   }
 
-  if (m_comm.rank() != m_root_rank) {
+  if (m_comm->rank() != m_root_rank) {
     for (const reduce_area &reduce : m_reduces) {
       reduce.init_reduce_area_on_worker();
     }
@@ -596,15 +598,15 @@ void par_ctx_base::do_enter_parallel(bool enter_parallel) {
 }
 
 void par_ctx_base::do_exit_parallel() {
-  if (m_comm.size() > 1) {
+  if (m_comm->size() > 1) {
     for (const reduce_area &reduce : m_reduces) {
-      if (reduce.all_reduce(m_comm) != MPI_SUCCESS) {
+      if (reduce.all_reduce(*m_comm) != MPI_SUCCESS) {
         std::cerr << "Failed to reduce\n";
         std::terminate();
       }
     }
   }
-  if (m_comm.rank() != m_root_rank) {
+  if (m_comm->rank() != m_root_rank) {
     setcontext(&worker_ctx);
   }
 }
@@ -632,7 +634,7 @@ void unregister_heap(mi_heap_t *heap) {
 
 [[nodiscard]] auto par_ctx_base::get_comm() const
     -> const bmpi::communicator & {
-  return m_comm;
+  return *m_comm;
 };
 
 auto proxy_mmap(void * /*addr*/, size_t len, int prot, int flags, int file_desc,
@@ -708,6 +710,9 @@ auto proxy_mmap(void * /*addr*/, size_t len, int prot, int flags, int file_desc,
 };
 
 auto proxy_madvise(void *addr, size_t size, int advice) -> int {
+  if (finished) {
+    return madvise(addr, size, advice);
+  }
 
   if (!overlap_with_reserved_heap({static_cast<char *>(addr), size})) {
 #if defined(__sun)
@@ -728,6 +733,10 @@ auto proxy_madvise(void *addr, size_t size, int advice) -> int {
 };
 
 auto proxy_munmap(void *addr, size_t size) -> int {
+  if (finished) {
+    return munmap(addr, size);
+  }
+
   if (!overlap_with_reserved_heap({static_cast<char *>(addr), size})) {
     return munmap(addr, size);
   }
