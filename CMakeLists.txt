@@ -99,6 +99,10 @@ endif()
 
 add_subdirectory(src)
 
+if(SIMPLE_PARALLEL_ENABLE_EXAMPLES)
+    add_subdirectory(example)
+endif()
+
 install(TARGETS 
     s_p_init
     s_p_c_binding

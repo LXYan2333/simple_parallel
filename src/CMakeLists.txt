@@ -13,7 +13,3 @@ if(SIMPLE_PARALLEL_Fortran_BINDING)
     message(STATUS "simple_parallel Enable Fortran binding")
     add_subdirectory(fortran_binding)
 endif()
-
-if(SIMPLE_PARALLEL_ENABLE_EXAMPLES)
-    add_subdirectory(example)
-endif()
