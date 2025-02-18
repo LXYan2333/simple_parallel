@@ -58,6 +58,7 @@ target_include_directories(s_p_init
 target_link_libraries(s_p_init
     PUBLIC
     Boost::headers
+    Boost::container
     Boost::mpi
     MPI::MPI_CXX
     

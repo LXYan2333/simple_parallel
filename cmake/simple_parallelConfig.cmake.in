@@ -7,7 +7,7 @@ endif()
 
 include(CMakeFindDependencyMacro)
 
-find_dependency(Boost REQUIRED COMPONENTS mpi headers thread)
+find_dependency(Boost REQUIRED COMPONENTS mpi headers thread container)
 set(MPI_CXX_SKIP_MPICXX ON)
 find_dependency(MPI REQUIRED)
 find_package(Microsoft.GSL REQUIRED)
