@@ -52,6 +52,7 @@ target_sources(s_p_init
 
 target_include_directories(s_p_init
     PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../mimalloc_for_simple_parallel/include/
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
@@ -66,7 +67,6 @@ target_link_libraries(s_p_init
     Boost::thread
     s_p_options
     s_p_warings
-    mimalloc-obj
     Microsoft.GSL::GSL
     hwy
 )
@@ -74,6 +74,7 @@ target_link_libraries(s_p_init
 set_target_properties(s_p_init
     PROPERTIES
     CXX_VISIBILITY_PRESET hidden
+    INTERFACE_LINK_LIBRARIES_DIRECT $<$<STREQUAL:$<TARGET_PROPERTY:TYPE>,EXECUTABLE>:simple_parallel::mimalloc-obj>
 )
 
 if(SIMPLE_PARALLEL_OVERRIDE_MAIN)

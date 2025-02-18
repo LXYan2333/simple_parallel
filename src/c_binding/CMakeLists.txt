@@ -26,6 +26,7 @@ target_link_libraries(s_p_c_binding
 set_target_properties(s_p_c_binding
     PROPERTIES
     C_VISIBILITY_PRESET hidden
+    INTERFACE_LINK_LIBRARIES_DIRECT $<$<STREQUAL:$<TARGET_PROPERTY:TYPE>,EXECUTABLE>:simple_parallel::mimalloc-obj>
 )
 
 target_compile_features(s_p_c_binding

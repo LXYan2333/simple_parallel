@@ -4,7 +4,6 @@ add_executable(cxx_example
 target_link_libraries(cxx_example
     PRIVATE
     simple_parallel::s_p_init
-    mimalloc-obj
     OpenMP::OpenMP_CXX
 )
 
@@ -15,7 +14,7 @@ if(SIMPLE_PARALLEL_C_BINDING)
     target_link_libraries(c_example
         PRIVATE
         simple_parallel::s_p_c_binding
-        mimalloc-obj
+        OpenMP::OpenMP_C
     )
 endif()
 
@@ -26,6 +25,5 @@ if(SIMPLE_PARALLEL_Fortran_BINDING)
     target_link_libraries(fortran_example
         PRIVATE
         simple_parallel::s_p_fortran_binding
-        mimalloc-obj
     )
 endif()

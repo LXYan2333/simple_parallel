@@ -32,6 +32,7 @@ endif()
 set_target_properties(s_p_fortran_binding
     PROPERTIES
     Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/mods/simple_parallel/
+    INTERFACE_LINK_LIBRARIES_DIRECT $<$<STREQUAL:$<TARGET_PROPERTY:TYPE>,EXECUTABLE>:simple_parallel::mimalloc-obj>
 )
 
 install(FILES
