@@ -122,7 +122,9 @@ public:
             size_t &buffer_size = buffer_sizes[i];
 
             BOOST_ASSERT(!requests.full());
-            BOOST_ASSERT(m_comm.iprobe(i, client_request_val).has_value());
+            BOOST_ASSERT(
+                m_comm.iprobe(gsl::narrow_cast<int>(i), client_request_val)
+                    .has_value());
 
             const val_t &val = *m_iter;
             // NOLINTBEGIN(*-reinterpret-cast)
