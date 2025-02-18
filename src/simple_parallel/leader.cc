@@ -361,7 +361,7 @@ void send_heap(const bmpi::communicator &comm, int root_rank,
       std::cerr << reinterpret_cast<void *>(page_range.lower() * page_size)
                 << '-'
                 << reinterpret_cast<void *>(page_range.upper() * page_size)
-                << '-' << (page_range.upper() - page_range.lower()) * page_size
+                << ": " << (page_range.upper() - page_range.lower()) * page_size
                 << '\n';
     }
     std::cerr << "zero pages:" << zero_pages.size() << '\n';
@@ -369,7 +369,7 @@ void send_heap(const bmpi::communicator &comm, int root_rank,
       std::cerr << reinterpret_cast<void *>(page_range.lower() * page_size)
                 << '-'
                 << reinterpret_cast<void *>(page_range.upper() * page_size)
-                << '-' << (page_range.upper() - page_range.lower()) * page_size
+                << ": " << (page_range.upper() - page_range.lower()) * page_size
                 << '\n';
     }
     // NOLINTEND
