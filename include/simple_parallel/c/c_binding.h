@@ -54,7 +54,7 @@ s_p_destruct_par_ctx(s_p_par_ctx *ctx);
 
 // __VA_OPT__ is a c23 feature but supported in gcc 8+ and clang 12+
 // https://godbolt.org/z/aP7PqKKfd
-#define S_P_PAR_BEGIN(enter_parallel, ctx_name, ...)                           \
+#define S_P_C_PAR_BEGIN(enter_parallel, ctx_name, ...)                         \
   {                                                                            \
     s_p_reduce_area _s_p_reduces[] = {__VA_OPT__(BOOST_PP_SEQ_FOR_EACH_I(      \
         __S_P_COMMA_SEP, _, BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__)))};          \
@@ -62,6 +62,6 @@ s_p_destruct_par_ctx(s_p_par_ctx *ctx);
         s_p_construct_par_ctx(enter_parallel, _s_p_reduces,                    \
                               sizeof(_s_p_reduces) / sizeof(s_p_reduce_area));
 
-#define S_P_PAR_END(ctx_name)                                                  \
+#define S_P_C_PAR_END(ctx_name)                                                \
     s_p_destruct_par_ctx(&(ctx_name));                                         \
   }

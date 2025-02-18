@@ -8,6 +8,7 @@
 #include <boost/optional/optional.hpp>
 #include <cstddef>
 #include <gsl/assert>
+#include <gsl/util>
 #include <iterator>
 #include <memory>
 #include <ranges>
@@ -53,16 +54,14 @@ public:
       : m_range(std::forward<rng>(range)), m_comm(std::move(comm)) {
 
     if (buffer_size == 0) {
-
-      m_buffer_size = static_cast<size_t>(std::thread::hardware_concurrency()) * 2;
-
-      // Even if we only have few threads, we should have at least 8 buffer size
-      // to handle network latency. This number is empirical.
-      m_buffer_size = std::max<size_t>(m_buffer_size, 8);
-
+      m_buffer_size =
+          static_cast<size_t>(std::thread::hardware_concurrency()) * 2;
     } else {
       m_buffer_size = buffer_size;
     }
+    // Even if we only have few threads, we should have at least 8 buffer size
+    // to handle network latency. This number is empirical.
+    m_buffer_size = std::max<size_t>(m_buffer_size, 8);
   }
 
   dynamic_schedule(const dynamic_schedule &) = delete;
@@ -101,19 +100,18 @@ public:
       sentinel_t m_end;
       bmpi::communicator m_comm;
       std::vector<boost::circular_buffer<bmpi::request>> m_requests;
-      std::vector<size_t> m_buffer_sizes;
 
       // In the beginning, each rank send a lot of requests to the server. If
       // we handle them one by one, the task may not be evenly distributed. So
       // we loop over all ranks and assign one task to each rank in each loop.
-      void first_time_handleclient_request() {
+      void first_time_handle_client_request(std::vector<size_t> buffer_sizes) {
         auto handled = [](size_t buffer_size) { return buffer_size == 0; };
-        while (!std::ranges::all_of(m_buffer_sizes, handled)) {
-          for (size_t i = 0; i < m_comm.size(); i++) {
+        while (!std::ranges::all_of(buffer_sizes, handled)) {
+          for (size_t i = 0; i < gsl::narrow_cast<size_t>(m_comm.size()); i++) {
             if (i == m_root_rank) {
               continue;
             }
-            if (m_buffer_sizes[i] == 0) {
+            if (buffer_sizes[i] == 0) {
               continue;
             }
             if (done()) {
@@ -121,7 +119,7 @@ public:
             }
 
             auto &requests = m_requests[i];
-            size_t &buffer_size = m_buffer_sizes[i];
+            size_t &buffer_size = buffer_sizes[i];
 
             BOOST_ASSERT(!requests.full());
             BOOST_ASSERT(m_comm.iprobe(i, client_request_val).has_value());
@@ -129,12 +127,13 @@ public:
             const val_t &val = *m_iter;
             // NOLINTBEGIN(*-reinterpret-cast)
             bmpi::request req = m_comm.isend(
-                i, server_send_val,
+                gsl::narrow_cast<int>(i), server_send_val,
                 reinterpret_cast<const char *>(std::addressof(val)),
                 sizeof(val));
             // NOLINTEND(*-reinterpret-cast)
             requests.push_back(std::move(req));
             m_iter++;
+            BOOST_ASSERT(buffer_size > 0);
             buffer_size--;
           }
         }
@@ -151,7 +150,7 @@ public:
           }
 
           const int source = recv->source();
-          auto &requests = m_requests[source];
+          auto &requests = m_requests[gsl::narrow_cast<size_t>(source)];
 
           m_comm.recv(source, client_request_val);
           const val_t &val = *m_iter;
@@ -212,12 +211,13 @@ public:
       server_handler(rng &range, bmpi::communicator comm,
                      std::vector<size_t> buffer_sizes)
           : m_iter(std::ranges::begin(range)), m_end(std::ranges::end(range)),
-            m_comm(std::move(comm)), m_buffer_sizes(std::move(buffer_sizes)) {
-        for (const size_t &buffer_size : m_buffer_sizes) {
+            m_comm(std::move(comm)) {
+        for (const size_t &buffer_size : buffer_sizes) {
           m_requests.emplace_back(buffer_size);
         }
         // wait until client send requests
         m_comm.barrier();
+        first_time_handle_client_request(std::move(buffer_sizes));
         handle_client_request();
       }
       ~server_handler() override {
@@ -396,7 +396,7 @@ public:
     }
   };
 
-  static_assert(std::input_iterator<iterator>);
+  // static_assert(std::input_iterator<iterator>);
 
   class sentinel {};
 

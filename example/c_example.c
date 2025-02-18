@@ -1,61 +1,49 @@
 #include <mpi.h>
+#include <omp.h>
 #include <simple_parallel/c/c_binding.h>
+#include <simple_parallel/c/c_dynamic_schedule_binding.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 int main() {
-  double stack_test[10] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
-  double *heap_test = (double *)malloc(10 * sizeof(double));
-  for (size_t i = 0; i < 10; i++) {
-    heap_test[i] = 10 - i;
-  }
+  size_t *heap_test = (size_t *)malloc(1024 * sizeof(double));
 
-  S_P_PAR_BEGIN(true, ctx, (stack_test, 10, MPI_SUM), (heap_test, 10, MPI_SUM))
+  heap_test[0] = 0;
 
-  int my_rank = 0;
+  S_P_C_PAR_BEGIN(true, ctx, (heap_test, 1024, MPI_SUM))
+
+  int world_rank = 0;
   int world_size = 0;
-  MPI_Comm_rank(ctx.comm, &my_rank);
+
+  MPI_Comm_rank(ctx.comm, &world_rank);
   MPI_Comm_size(ctx.comm, &world_size);
 
-  MPI_Barrier(ctx.comm);
+  printf("rank: %d, size: %d\n", world_rank, world_size);
 
-  for (size_t i = 0; i < world_size; i++) {
-    if (my_rank == i) {
-      printf("Hello from rank %d\n", my_rank);
-      printf("stack_test of rank: %d: ", my_rank);
-      for (size_t j = 0; j < 10; j++) {
-        printf("%f ", stack_test[j]);
-      }
-      printf("\n");
-      printf("heap_test of rank: %d: ", my_rank);
-      for (size_t j = 0; j < 10; j++) {
-        printf("%f ", heap_test[j]);
-      }
-      printf("\n");
+#pragma omp parallel default(shared) reduction(+ : heap_test[ : 1024])         \
+    allocate(omp_large_cap_mem_alloc : heap_test)
+  {
+    S_P_GSS_UINT64_T_PAR_FOR(i, 0, 102400, 4, ctx.comm) {
+      printf("thread: %d, i: %zu\n", omp_get_thread_num(), i);
+      heap_test[0] += i;
+      usleep(40);
     }
-    MPI_Barrier(ctx.comm);
+    S_P_GSS_UINT64_T_PAR_FOR_END
+
+    printf("thread: %d, heap_test[0]: %zu\n", omp_get_thread_num(),
+           heap_test[0]);
   }
 
-  for (size_t i = 0; i < 10; i++) {
-    stack_test[i] += 2;
-    heap_test[i] += 3;
-  }
+  S_P_C_PAR_END(ctx)
 
-  S_P_PAR_END(ctx)
+  printf("%zu ", heap_test[0]);
 
-  printf("Exited parallel context\n");
-  printf("stack_test: ");
-  for (size_t i = 0; i < 10; i++) {
-    printf("%f ", stack_test[i]);
-  }
   printf("\n");
-  printf("heap_test: ");
-  for (size_t i = 0; i < 10; i++) {
-    printf("%f ", heap_test[i]);
-  }
-  printf("\n");
+
+  free(heap_test);
 
   return 0;
 }
