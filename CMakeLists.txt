@@ -103,6 +103,10 @@ if(SIMPLE_PARALLEL_ENABLE_EXAMPLES)
     add_subdirectory(example)
 endif()
 
+if(CMAKE_SKIP_INSTALL_RULES)
+    return()
+endif()
+
 install(TARGETS 
     s_p_init
     s_p_c_binding
