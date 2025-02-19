@@ -64,13 +64,13 @@ auto AllReduce(void *recvbuf, size_t count, MPI_Datatype datatype, MPI_Op op,
   const size_t elem_size = get_mpi_type_size(datatype);
   BOOST_ASSERT(elem_size > 0);
 
-  constexpr int int_max = std::numeric_limits<int>::max();
+  constexpr size_t int_max = std::numeric_limits<int>::max();
 
   // NOLINTBEGIN(*pointer-arithmetic)
   for (size_t sent = 0; sent < count; sent += int_max) {
     char *this_iter_buffer = static_cast<char *>(recvbuf) + (sent * elem_size);
     int this_iter_count =
-        std::min(int_max, gsl::narrow_cast<int>(count - sent));
+        gsl::narrow_cast<int>(std::min(int_max, count - sent));
     auto ret = MPI_Allreduce(MPI_IN_PLACE, this_iter_buffer, this_iter_count,
                              datatype, op, comm);
     if (ret != MPI_SUCCESS) {
