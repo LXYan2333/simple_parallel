@@ -427,8 +427,6 @@ void enter_parallel_impl(enter_parallel_impl_params *params) {
 
 namespace simple_parallel {
 
-std::mutex par_ctx_base::m_parallel_mutex{};
-
 void reduce_area::init_inner_pages(std::optional<pte_range> &inner_pages) {
   inner_pages =
       memarea2innerpgrng({static_cast<char *>(m_begin),
@@ -553,11 +551,21 @@ void par_ctx_base::set_reduces(std::span<const reduce_area> reduces) {
   m_reduces = reduces;
 };
 
+namespace {
+std::atomic<bool> in_parallel = false;
+}
+
 void par_ctx_base::do_enter_parallel(bool enter_parallel) {
   if (!enter_parallel or m_comm->size() == 1) {
     m_comm = &s_p_comm_self.value();
     return;
   }
+  if (in_parallel) {
+    std::cerr << "Error: nested parallel is not supported\n";
+    std::terminate();
+  }
+  in_parallel = true;
+  entered_parallel = true;
   if (getcontext(&m_sync_mem_ctx) == -1) {
     perror("getcontext");
     std::terminate();
@@ -598,6 +606,10 @@ void par_ctx_base::do_enter_parallel(bool enter_parallel) {
 }
 
 void par_ctx_base::do_exit_parallel() {
+  if (!entered_parallel) {
+    return;
+  }
+  in_parallel = false;
   if (m_comm->size() > 1) {
     for (const reduce_area &reduce : m_reduces) {
       if (reduce.all_reduce(*m_comm) != MPI_SUCCESS) {

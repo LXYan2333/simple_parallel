@@ -80,11 +80,9 @@ private:
   bmpi::communicator *m_comm;
   static constexpr int m_root_rank = 0;
 
-  // trying to create multiple par_ctx_impl is not allowed
-  static std::mutex m_parallel_mutex;
-  std::lock_guard<std::mutex> m_one_par_ctx_lock{m_parallel_mutex};
-
   std::span<const reduce_area> m_reduces;
+
+  bool entered_parallel = false;
 
   void verify_reduces_no_overlap() const;
 

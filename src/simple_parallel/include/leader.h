@@ -7,9 +7,6 @@
 #include <variant>
 
 namespace simple_parallel {
-// NOLINTBEGIN(*-global-variables)
-extern bool in_parallel;
-// NOLINTEND(*-global-variables)
 
 enum class rpc_tag : int8_t {
   exit,
