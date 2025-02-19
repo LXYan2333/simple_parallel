@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <boost/mpi.hpp>
 #include <cstddef>
 #include <cstdint>
@@ -74,7 +75,7 @@ struct s_p_dynamic_schedule_s {
         m_end(m_schedule->end()) {}
 };
 
-auto new_s_p_dynamic_schedule(s_p_task_gen_func *task_gen_func, void *state,
+auto s_p_new_dynamic_schedule(s_p_task_gen_func *task_gen_func, void *state,
                               MPI_Comm communicator, size_t buffer_size)
     -> gsl::owner<s_p_dynamic_schedule *> {
   auto schedule = std::make_unique<generator_t>(
@@ -97,32 +98,32 @@ auto s_p_done(s_p_dynamic_schedule *schedule) -> bool {
   return schedule->m_iter == schedule->m_end;
 };
 
-void delete_s_p_dynamic_schedule(gsl::owner<s_p_dynamic_schedule *> schedule) {
+void s_p_delete_dynamic_schedule(gsl::owner<s_p_dynamic_schedule *> schedule) {
   delete schedule;
 };
 
 // NOLINTNEXTLINE(*easily-swappable-parameters)
-auto new_gss_state(uint64_t begin, uint64_t end, uint64_t grain_size,
-                   uint64_t current_rank_process_count, MPI_Comm communicator)
-    -> gss_state_t {
+auto s_p_new_gss_state(uint64_t begin, uint64_t end, uint64_t grain_size,
+                       uint64_t current_rank_process_count,
+                       MPI_Comm communicator) -> s_p_gss_state_t {
   size_t all_rank_process_count =
       bmpi::all_reduce({communicator, bmpi::comm_attach},
-                       current_rank_process_count, std::plus<size_t>{});
+                       current_rank_process_count, std::plus<uint64_t>{});
   return {begin, end, grain_size, all_rank_process_count};
 };
 
-auto gss_generator(void *state, s_p_dyn_buffer *buffer) -> bool {
-  auto *gss_state = static_cast<gss_state_t *>(state);
-  static_assert(sizeof(simple_task) <= sizeof(s_p_dyn_buffer));
+auto s_p_gss_generator(void *state, s_p_dyn_buffer *buffer) -> bool {
+  auto *gss_state = static_cast<s_p_gss_state_t *>(state);
+  static_assert(sizeof(s_p_simple_task) <= sizeof(s_p_dyn_buffer));
   // NOLINTNEXTLINE(*reinterpret-cast)
-  auto *res = reinterpret_cast<simple_task *>(buffer);
+  auto *res = reinterpret_cast<s_p_simple_task *>(buffer);
 
-  size_t remaining = gss_state->end - gss_state->current;
+  uint64_t remaining = gss_state->end - gss_state->current;
   if (remaining == 0) {
     return true;
   }
 
-  size_t next = ((remaining - 1) / gss_state->all_rank_process_count) + 1;
+  uint64_t next = ((remaining - 1) / gss_state->all_rank_process_count) + 1;
   next = std::max(next, gss_state->grain_size);
   next = std::min(next, remaining);
 
@@ -132,3 +133,51 @@ auto gss_generator(void *state, s_p_dyn_buffer *buffer) -> bool {
   gss_state->current += next;
   return false;
 };
+
+auto s_p_new_collapse_2_gss_state(uint64_t i_begin, uint64_t i_end,
+                                  uint64_t j_begin, uint64_t j_end,
+                                  uint64_t grain_size, uint64_t all_index_count,
+                                  collapse_2_gss_gen_func *gen_func,
+                                  void *gen_func_state,
+                                  uint64_t current_rank_process_count,
+                                  MPI_Comm communicator)
+    -> s_p_collapse_2_gss_state_t {
+  size_t all_rank_process_count =
+      bmpi::all_reduce({communicator, bmpi::comm_attach},
+                       current_rank_process_count, std::plus<uint64_t>{});
+  return {i_begin,
+          i_end,
+          j_begin,
+          j_end,
+          all_index_count,
+          grain_size,
+          all_rank_process_count,
+          gen_func,
+          gen_func_state};
+}
+
+auto s_p_collapse_2_gss_generator(void *state, s_p_dyn_buffer *buffer) -> bool {
+  auto *gen_state = static_cast<s_p_collapse_2_gss_state_t *>(state);
+  static_assert(sizeof(s_p_collapse_2_task) <= sizeof(s_p_dyn_buffer));
+  // NOLINTNEXTLINE(*-reinterpret-cast)
+  auto *res = reinterpret_cast<s_p_collapse_2_task *>(buffer);
+
+  if (gen_state->icurrent == gen_state->iend &&
+      gen_state->jcurrent == gen_state->jend) {
+    return true;
+  }
+
+  uint64_t next =
+      ((gen_state->remaining_index - 1) / gen_state->all_rank_process_count) +
+      1;
+
+  next = std::max(next, gen_state->grain_size);
+  next = std::min(next, gen_state->remaining_index);
+
+  *res = gen_state->gen_func(gen_state->icurrent, gen_state->jcurrent, next,
+                             gen_state->gen_func_state);
+  gen_state->icurrent = res->iend;
+  gen_state->jcurrent = res->jend;
+  gen_state->remaining_index -= res->index_count;
+  return false;
+}
