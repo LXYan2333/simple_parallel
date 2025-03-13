@@ -132,8 +132,42 @@ auto debug() -> bool {
 const mem_area fake_stack{fake_stack_buffer};
 
 auto get_reserved_heap() -> mem_area {
+
+  BOOST_ASSERT(get_mpi_info_from_env().world_size != 1);
+
+  static mem_area reserved_heap = [] {
+    // NOLINTBEGIN(concurrency-mt-unsafe,*-reinterpret-cast,*-int-to-ptr,*-magic-numbers)
+    auto *start = reinterpret_cast<char *>(0x4100'0000'0000);
+
+    if (const char *user_set_start =
+            std::getenv("SIMPLE_PARALLEL_RESERVED_HEAP_ADDR")) {
+      try {
+        start =
+            reinterpret_cast<char *>(std::stoull(user_set_start, nullptr, 16));
+      } catch (...) {
+        throw std::runtime_error(
+            "Failed to parse SIMPLE_PARALLEL_RESERVED_HEAP_ADDR");
+      }
+    }
+
+    size_t size = 0x1000'0000'0000;
+
+    if (const char *user_set_size =
+            std::getenv("SIMPLE_PARALLEL_RESERVED_HEAP_SIZE")) {
+      try {
+        size = std::stoull(user_set_size, nullptr, 16);
+      } catch (...) {
+        throw std::runtime_error(
+            "Failed to parse SIMPLE_PARALLEL_RESERVED_HEAP_SIZE");
+      }
+    }
+    // NOLINTEND(concurrency-mt-unsafe,*-reinterpret-cast,*-int-to-ptr,*-magic-numbers)
+
+    return mem_area{start, size};
+  }();
+
   // NOLINTNEXTLINE(*-reinterpret-cast)
-  return {reinterpret_cast<char *>(0x4000'0000'0000), 0x1000'0000'0000};
+  return reserved_heap;
 };
 
 std::optional<bmpi::communicator> s_p_comm = std::nullopt;
