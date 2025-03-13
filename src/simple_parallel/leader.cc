@@ -28,6 +28,8 @@
 #include <set>
 #include <simple_parallel/cxx/simple_parallel.h>
 #include <span>
+#include <sstream>
+#include <stdexcept>
 #include <sys/mman.h>
 #include <type_traits>
 #include <ucontext.h>
@@ -58,12 +60,13 @@ auto get_next_sym(const char *symbol) -> void * {
   if (next_sym == nullptr) {
     // NOLINTNEXTLINE(concurrency-mt-unsafe)
     char *error = dlerror();
+    std::stringstream ss;
     if (error != nullptr) {
-      std::cerr << error << '\n';
+      ss << error << '\n';
     } else {
-      std::cerr << "Unknown dlsym error\n";
+      ss << "Unknown dlsym error\n";
     }
-    std::terminate();
+    throw std::runtime_error(ss.str());
   }
   return next_sym;
 }
@@ -460,11 +463,12 @@ void reduce_area::init_reduce_area_on_worker() const {
     int len{};
     MPI_Type_get_name(m_type, type_name.data(), &len);
 
-    std::cerr << "Error: Reduce " << type_name.data() << " with MPI Operation "
-              << op_2_name.at(m_op)
-              << " is not supported by simple_parallel. You can manually call "
-                 "`MPI_Reduce` to reduce your array/value.\n";
-    std::terminate();
+    std::stringstream ss;
+    ss << "Error: Reduce " << type_name.data() << " with MPI Operation "
+       << op_2_name.at(m_op)
+       << " is not supported by simple_parallel. You can manually call "
+          "`MPI_Reduce` to reduce your array/value.\n";
+    throw std::runtime_error(ss.str());
   };
 
   const bool is_zero_init_when_sum = std::ranges::any_of(
@@ -536,12 +540,12 @@ void par_ctx_base::verify_reduces_no_overlap() const {
         };
         // NOLINTEND
 
-        std::cerr << "Error: the " << get_number_with_ordinal_suffix(lhs + 1)
-                  << " reduce area and "
-                  << get_number_with_ordinal_suffix(rhs + 1)
-                  << " reduce area overlaps. Please check your reduce input "
-                     "parameter.\n";
-        std::terminate();
+        std::stringstream ss;
+        ss << "Error: the " << get_number_with_ordinal_suffix(lhs + 1)
+           << " reduce area and " << get_number_with_ordinal_suffix(rhs + 1)
+           << " reduce area overlaps. Please check your reduce input "
+              "parameter.\n";
+        throw std::runtime_error(ss.str());
       }
     }
   }
@@ -561,14 +565,17 @@ void par_ctx_base::do_enter_parallel(bool enter_parallel) {
     return;
   }
   if (in_parallel) {
-    std::cerr << "Error: nested parallel is not supported\n";
-    std::terminate();
+    std::stringstream ss;
+    ss << "Error: nested parallel is not supported\n";
+    throw std::runtime_error(ss.str());
   }
   in_parallel = true;
   entered_parallel = true;
   if (getcontext(&m_sync_mem_ctx) == -1) {
-    perror("getcontext");
-    std::terminate();
+    std::stringstream ss;
+    // NOLINTNEXTLINE(concurrency-mt-unsafe)
+    ss << "Failed to getcontext, reason: " << std::strerror(errno);
+    throw std::runtime_error(ss.str());
   }
   m_sync_mem_ctx.uc_link = &m_parallel_ctx;
   m_sync_mem_ctx.uc_stack.ss_sp = &sync_mem_stack[0];
@@ -590,8 +597,10 @@ void par_ctx_base::do_enter_parallel(bool enter_parallel) {
 
   // enter parallel context when return from swapcontext
   if (swapcontext(&m_parallel_ctx, &m_sync_mem_ctx) == -1) {
-    perror("swapcontext");
-    std::terminate();
+    std::stringstream ss;
+    // NOLINTNEXTLINE(concurrency-mt-unsafe)
+    ss << "Failed to swapcontext, reason: " << std::strerror(errno);
+    throw std::runtime_error(ss.str());
   }
 
   if (debug()) {
@@ -613,8 +622,7 @@ void par_ctx_base::do_exit_parallel() {
   if (m_comm->size() > 1) {
     for (const reduce_area &reduce : m_reduces) {
       if (reduce.all_reduce(*m_comm) != MPI_SUCCESS) {
-        std::cerr << "Failed to reduce\n";
-        std::terminate();
+        throw std::runtime_error("Failed to reduce");
       }
     }
   }

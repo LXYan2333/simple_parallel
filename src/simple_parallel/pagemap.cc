@@ -1,13 +1,15 @@
 #include "simple_parallel/cxx/types_fwd.h"
 #include <boost/assert.hpp>
-#include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <cstring>
 #include <fcntl.h>
 #include <fstream>
 #include <gsl/util>
 #include <iostream>
 #include <span>
+#include <sstream>
+#include <stdexcept>
 #include <unistd.h>
 
 #include <pagemap.h>
@@ -22,9 +24,11 @@ class pagemap {
   // NOLINTNEXTLINE(*-vararg)
   pagemap() : m_fd(open("/proc/self/pagemap", O_RDONLY)) {
     if (m_fd == -1) {
-      perror("open");
-      std::cerr << "Failed to open /proc/self/pagemap\n";
-      std::terminate();
+      std::stringstream ss;
+      ss << "Failed to open /proc/self/pagemap, reason: "
+         // NOLINTNEXTLINE(concurrency-mt-unsafe)
+         << std::strerror(errno);
+      throw std::runtime_error(ss.str());
     }
   }
 
@@ -53,9 +57,11 @@ public:
     // pre-read behaviour, but Linux requires the read be a multiple of 8
     if (pread(m_fd, res.data(), res.size_bytes(),
               gsl::narrow_cast<off_t>(rng.begin * sizeof(uint64_t))) == -1) {
-      perror("pread");
-      std::cerr << "Failed to read /proc/self/pagemap\n";
-      std::terminate();
+      std::stringstream ss;
+      ss << "Failed to read /proc/self/pagemap, reason: "
+         // NOLINTNEXTLINE(concurrency-mt-unsafe)
+         << std::strerror(errno);
+      throw std::runtime_error(ss.str());
     }
   }
 };
@@ -67,8 +73,7 @@ namespace simple_parallel {
 void clear_soft_dirty() {
   static std::ofstream clear_refs("/proc/self/clear_refs");
   if (!clear_refs) {
-    std::cerr << "Failed to open /proc/self/clear_refs\n";
-    std::terminate();
+    throw std::runtime_error("Failed to open /proc/self/clear_refs");
   }
 
   // for this magic number, see

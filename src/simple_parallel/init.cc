@@ -3,7 +3,6 @@
 #include <cstddef>
 #include <cstdio>
 #include <cstdlib>
-#include <exception>
 #include <fake_main.h>
 #include <fstream>
 #include <gsl/gsl>
@@ -13,8 +12,12 @@
 #include <mimalloc/simple_parallel.h>
 #include <mpi.h>
 #include <optional>
+#include <page_size.h>
 #include <pagemap.h>
 #include <sched.h>
+#include <simple_parallel/cxx/types_fwd.h>
+#include <sstream>
+#include <stdexcept>
 #include <sys/mman.h>
 #include <sys/personality.h>
 #include <thread>
@@ -50,8 +53,7 @@ void main_wrap(main_wrap_params *params) {
 auto check_aslr_disabled(const bmpi::communicator &comm) -> void {
   std::ifstream filestat("/proc/self/personality");
   if (!filestat.is_open()) {
-    std::cerr << "Failed to open /proc/self/personality\n";
-    std::terminate();
+    throw std::runtime_error("Failed to open /proc/self/personality");
   }
   std::string line;
   std::getline(filestat, line);
@@ -59,9 +61,9 @@ auto check_aslr_disabled(const bmpi::communicator &comm) -> void {
   try {
     personality = std::stoull(line, nullptr, 16);
   } catch (...) {
-    std::cerr << "Failed to parse /proc/self/personality, str: " << line
-              << '\n';
-    std::terminate();
+    std::stringstream ss;
+    ss << "Failed to parse /proc/self/personality, str: " << line << '\n';
+    throw std::runtime_error(ss.str());
   }
 
   // exit if ASLR is disabled
@@ -84,19 +86,22 @@ auto check_aslr_disabled(const bmpi::communicator &comm) -> void {
 void check_pagesize() {
   auto actual_pagesize = gsl::narrow_cast<size_t>(sysconf(_SC_PAGE_SIZE));
   if (page_size != actual_pagesize) {
-    std::cerr << "Error: page size mismatch, expect " << page_size
-              << " but actual is " << actual_pagesize << '\n'
-              << "You must recompile simple_parallel again on this machine. "
-                 "CMake will detect the correct page size automatically.\n";
-    std::terminate();
+    std::stringstream ss;
+    ss << "Error: page size mismatch, expect " << page_size << " but actual is "
+       << actual_pagesize << '\n'
+       << "You must recompile simple_parallel again on this machine. "
+          "CMake will detect the correct page size automatically.\n";
+    throw std::runtime_error(ss.str());
   }
 }
 
 auto get_avail_cpu_count() -> size_t {
   cpu_set_t set;
   if (sched_getaffinity(0, sizeof(set), &set) == -1) {
-    perror("sched_getaffinity");
-    std::terminate();
+    std::stringstream ss;
+    // NOLINTNEXTLINE(concurrency-mt-unsafe)
+    ss << "Failed to get CPU affinity, reason: " << std::strerror(errno);
+    throw std::runtime_error(ss.str());
   };
   auto cpusetsize = static_cast<size_t>(CPU_COUNT(&set));
   return cpusetsize;
@@ -104,17 +109,18 @@ auto get_avail_cpu_count() -> size_t {
 
 void check_cpu_binding(int rank) {
   // NOLINTNEXTLINE(concurrency-mt-unsafe)
-  if (getenv("SIMPLE_PARALLEL_SKIP_CORE_BIND_CHECK") != nullptr) {
+  if (std::getenv("SIMPLE_PARALLEL_SKIP_CORE_BIND_CHECK") != nullptr) {
     return;
   }
   if (get_avail_cpu_count() <= 2 && std::thread::hardware_concurrency() > 2) {
+    std::stringstream ss;
     // clang-format off
-    std::cerr << "Error: CPU avaliable to rank " << rank << " is restricted. This process will not be able to take advantage of all CPU cores.\n"
-                 "Usually this is caused by OpenMPI, which bind process to one core by default. see https://docs.open-mpi.org/en/v5.0.x/man-openmpi/man1/mpirun.1.html#quick-summary\n"
-                 "This can be easily solved by adding `--bind-to none` to mpirun argument\n"
-                 "If you believe this is a false positive error, please set SIMPLE_PARALLEL_SKIP_CORE_BIND_CHECK environment variable to any value.\n";
+    ss << "Error: CPU avaliable to rank " << rank << " is restricted. This process will not be able to take advantage of all CPU cores.\n"
+          "Usually this is caused by OpenMPI, which bind process to one core by default. see https://docs.open-mpi.org/en/v5.0.x/man-openmpi/man1/mpirun.1.html#quick-summary\n"
+          "This can be easily solved by adding `--bind-to none` to mpirun argument\n"
+          "If you believe this is a false positive error, please set SIMPLE_PARALLEL_SKIP_CORE_BIND_CHECK environment variable to any value.\n";
     // clang-format on
-    std::terminate();
+    throw std::runtime_error(ss.str());
   }
 }
 
@@ -124,7 +130,7 @@ namespace simple_parallel {
 
 auto debug() -> bool {
   // NOLINTNEXTLINE(concurrency-mt-unsafe)
-  static bool res = getenv("SIMPLE_PARALLEL_DEBUG") != nullptr;
+  static bool res = std::getenv("SIMPLE_PARALLEL_DEBUG") != nullptr;
   return res;
 }
 
@@ -192,8 +198,8 @@ auto get_mpi_info_from_env() -> mpi_info {
   if (!initialized) {
     initialized = true;
     // NOLINTBEGIN(concurrency-mt-unsafe)
-    char *world_size_char = getenv("OMPI_COMM_WORLD_SIZE");
-    char *world_rank_char = getenv("OMPI_COMM_WORLD_RANK");
+    char *world_size_char = std::getenv("OMPI_COMM_WORLD_SIZE");
+    char *world_rank_char = std::getenv("OMPI_COMM_WORLD_RANK");
     // NOLINTEND(concurrency-mt-unsafe)
 
     if (world_size_char == nullptr || world_rank_char == nullptr) {
@@ -225,8 +231,8 @@ auto get_mpi_info_from_env() -> mpi_info {
 auto fake_main(int argc, char **argv, char **env) -> int {
 
   // NOLINTBEGIN(concurrency-mt-unsafe)
-  char *world_size_char = getenv("OMPI_COMM_WORLD_SIZE");
-  char *world_rank_char = getenv("OMPI_COMM_WORLD_RANK");
+  char *world_size_char = std::getenv("OMPI_COMM_WORLD_SIZE");
+  char *world_rank_char = std::getenv("OMPI_COMM_WORLD_RANK");
   // NOLINTEND(concurrency-mt-unsafe)
 
   auto [world_size, world_rank] = get_mpi_info_from_env();
@@ -300,8 +306,10 @@ auto fake_main(int argc, char **argv, char **env) -> int {
     ucontext_t fake_stack_context;
     ucontext_t fake_main_context;
     if (getcontext(&fake_stack_context) == -1) {
-      perror("getcontext");
-      return 1;
+      std::stringstream ss;
+      // NOLINTNEXTLINE(concurrency-mt-unsafe)
+      ss << "Failed to getcontext, reason: " << std::strerror(errno);
+      throw std::runtime_error(ss.str());
     };
 
     fake_stack_context.uc_link = &fake_main_context;
@@ -316,8 +324,10 @@ auto fake_main(int argc, char **argv, char **env) -> int {
     makecontext(&fake_stack_context, reinterpret_cast<void (*)()>(main_wrap), 1,
                 &params);
     if (swapcontext(&fake_main_context, &fake_stack_context) == -1) {
-      perror("swapcontext");
-      return 1;
+      std::stringstream ss;
+      // NOLINTNEXTLINE(concurrency-mt-unsafe)
+      ss << "Failed to swapcontext, reason: " << std::strerror(errno);
+      throw std::runtime_error(ss.str());
     };
     finished = true;
     send_rpc_tag(rpc_tag::exit, 0, s_p_comm.value());

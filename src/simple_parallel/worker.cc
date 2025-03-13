@@ -4,13 +4,14 @@
 #include <cstddef>
 #include <cstdio>
 #include <cstring>
-#include <exception>
 #include <gsl/util>
 #include <init.h>
 #include <internal_types.h>
 #include <leader.h>
 #include <mpi.h>
 #include <pagemap.h>
+#include <sstream>
+#include <stdexcept>
 #include <sys/mman.h>
 #include <sys/ucontext.h>
 #include <ucontext.h>
@@ -42,20 +43,29 @@ void reserve_heap_area() {
     if (ptr != reserved_heap.data()) {
       if (ptr == MAP_FAILED) {
         if (loop_count > 16) {
-          std::cerr << "Error: mmap reserved heap failed after 16 times, exit. "
-                       "Reason:\n";
-          perror("mmap");
-          std::terminate();
+          std::stringstream ss;
+          ss << "Error: mmap reserved heap failed after 16 times, exit. "
+                "Reason: "
+             // NOLINTNEXTLINE(concurrency-mt-unsafe)
+             << std::strerror(errno);
+          throw std::runtime_error(ss.str());
         }
         continue;
       } else {
         if (loop_count > 16) {
-          std::cerr << "Error: mmap reserved heap failed after 16 times, exit. "
-                       "Reason: reserved heap is not at expected address. The "
-                       "memory address may have beed used by other library. "
-                       "Set SIMPLE_PARALLEL_RESERVED_HEAP_ADDR environment "
-                       "variable to another location can solve this problem.\n";
-          std::terminate();
+          std::stringstream ss;
+          ss << "Error: mmap reserved heap failed after 16 times, exit. "
+                "Reason: reserved heap is not at expected address. The memory "
+                "address may have beed used by other library. Set "
+                "SIMPLE_PARALLEL_RESERVED_HEAP_ADDR environment variable to "
+                "another location can solve this problem\n"
+                "Tip: set SIMPLE_PARALLEL_RESERVED_HEAP_ADDR environment "
+                "variable to "
+             << ptr
+             << "or set SIMPLE_PARALLEL_RESERVED_HEAP_SIZE environment "
+                "variable (default 0x100000000000) to a smaller value might "
+                "solve this problem.";
+          throw std::runtime_error(ss.str());
         }
         munmap(ptr, reserved_heap.size_bytes());
       }

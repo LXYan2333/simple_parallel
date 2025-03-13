@@ -6,6 +6,7 @@
 #include <map>
 #include <mpi.h>
 #include <simple_parallel/cxx/simple_parallel.h>
+#include <sstream>
 
 namespace sp = simple_parallel;
 
@@ -29,14 +30,13 @@ struct par_ctx_fortran_binding : public sp::par_ctx_base {
 
   void enter_parallel(bool enter_parallel) {
     if (m_in_parallel) {
-      std::cerr << "Error: Recursively enter Fortran parallel context again is "
-                   "not supported\n";
-      std::terminate();
+      throw std::runtime_error(
+          "Error: Recursively enter Fortran parallel context again is "
+          "not supported");
     }
     if (m_ever_entered_parallel) {
-      std::cerr
-          << "Error: Re-enter Fortran parallel context is not supported\n";
-      std::terminate();
+      throw std::runtime_error(
+          "Error: Re-enter Fortran parallel context is not supported");
     }
     m_in_parallel = true;
     m_ever_entered_parallel = true;
@@ -126,13 +126,14 @@ extern "C" void s_p_f_ctx_add_reduce_area(par_ctx_fortran_binding *ctx,
         {CFI_type_struct, "CFI_type_struct"},
         {CFI_type_other, "CFI_type_other"}};
     auto name = all_type_names.find(array->type);
+    std::stringstream ss;
     if (name != all_type_names.end()) {
-      std::cerr << "Error: simple_parallel does not support Fortran type "
-                << *name->second << '\n';
+      ss << "Error: simple_parallel does not support Fortran type "
+         << *name->second << '\n';
     } else {
-      std::cerr << "Error: Unsupported Fortran type\n";
+      ss << "Error: Unsupported Fortran type\n";
     }
-    std::terminate();
+    throw std::runtime_error(ss.str());
   }
 
   size_t len = 1;

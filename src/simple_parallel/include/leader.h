@@ -2,6 +2,8 @@
 
 #include <mimalloc.h>
 #include <simple_parallel/cxx/simple_parallel.h>
+#include <sstream>
+#include <stdexcept>
 #include <sys/mman.h>
 #include <ucontext.h>
 #include <variant>
@@ -29,8 +31,10 @@ struct mmap_params {
   void operator()() const {
     // NOLINTNEXTLINE(*-signed-bitwise)
     if (mmap(addr, len, prot, flags | MAP_FIXED, fd, offset) == MAP_FAILED) {
-      perror("mmap");
-      std::terminate();
+      std::stringstream ss;
+      // NOLINTNEXTLINE(concurrency-mt-unsafe)
+      ss << "Failed to mmap, reason: " << std::strerror(errno);
+      throw std::runtime_error(ss.str());
     };
   }
 };
@@ -44,9 +48,11 @@ struct munmap_params {
     int prot = PROT_NONE;
     int flags = MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE | MAP_FIXED;
     if (mmap(addr, len, prot, flags, -1, 0) == MAP_FAILED) {
-      perror("mmap");
-      std::cerr << "Failed to occupy the unmaped area in worker process\n";
-      std::terminate();
+      std::stringstream ss;
+      ss << "Failed to occupy the unmaped area in worker process, reason: "
+         // NOLINTNEXTLINE(concurrency-mt-unsafe)
+         << std::strerror(errno);
+      throw std::runtime_error(ss.str());
     };
   }
 };
