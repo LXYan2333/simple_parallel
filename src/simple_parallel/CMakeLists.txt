@@ -1,12 +1,15 @@
 # detect page size. this needs to be a compile-time constant for performance
-add_executable(detect_page_size detect_page_size.cc)
-target_link_libraries(detect_page_size PRIVATE s_p_options)
-add_custom_command(
-    OUTPUT page_size.h
-    COMMAND detect_page_size ${CMAKE_CURRENT_BINARY_DIR}/page_size.h
-    DEPENDS detect_page_size
-    VERBATIM
-)
+# a block is used to avoid `-march` flags being applied to the detect_page_size executable
+block()
+    add_executable(detect_page_size detect_page_size.cc)
+    target_link_libraries(detect_page_size PRIVATE s_p_options)
+    add_custom_command(
+        OUTPUT page_size.h
+        COMMAND detect_page_size ${CMAKE_CURRENT_BINARY_DIR}/page_size.h
+        DEPENDS detect_page_size
+        VERBATIM
+    )
+endblock()
 
 
 add_library(s_p_init
@@ -70,6 +73,10 @@ target_link_libraries(s_p_init
     Microsoft.GSL::GSL
     hwy
 )
+
+# target_compile_options(s_p_init
+#     PUBLIC "-fno-stack-protector"
+# )
 
 set_target_properties(s_p_init
     PROPERTIES
