@@ -54,14 +54,10 @@ public:
       : m_range(std::forward<rng>(range)), m_comm(std::move(comm)) {
 
     if (buffer_size == 0) {
-      m_buffer_size =
-          static_cast<size_t>(std::thread::hardware_concurrency()) * 2;
+      m_buffer_size = static_cast<size_t>(std::thread::hardware_concurrency());
     } else {
       m_buffer_size = buffer_size;
     }
-    // Even if we only have few threads, we should have at least 8 buffer size
-    // to handle network latency. This number is empirical.
-    m_buffer_size = std::max<size_t>(m_buffer_size, 8);
   }
 
   dynamic_schedule(const dynamic_schedule &) = delete;
