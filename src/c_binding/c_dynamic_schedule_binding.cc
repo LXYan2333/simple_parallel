@@ -138,22 +138,15 @@ auto s_p_new_collapse_2_gss_state(uint64_t i_begin, uint64_t i_end,
                                   uint64_t j_begin, uint64_t j_end,
                                   uint64_t grain_size, uint64_t all_index_count,
                                   collapse_2_gss_gen_func *gen_func,
-                                  void *gen_func_state,
+                                  const void *gen_func_state,
                                   uint64_t current_rank_process_count,
                                   MPI_Comm communicator)
     -> s_p_collapse_2_gss_state_t {
   size_t all_rank_process_count =
       bmpi::all_reduce({communicator, bmpi::comm_attach},
                        current_rank_process_count, std::plus<uint64_t>{});
-  return {i_begin,
-          i_end,
-          j_begin,
-          j_end,
-          all_index_count,
-          grain_size,
-          all_rank_process_count,
-          gen_func,
-          gen_func_state};
+  return {{i_begin, j_begin},     {i_end, j_end}, all_index_count, grain_size,
+          all_rank_process_count, gen_func,       gen_func_state};
 }
 
 auto s_p_collapse_2_gss_generator(void *state, s_p_dyn_buffer *buffer) -> bool {
@@ -162,8 +155,10 @@ auto s_p_collapse_2_gss_generator(void *state, s_p_dyn_buffer *buffer) -> bool {
   // NOLINTNEXTLINE(*-reinterpret-cast)
   auto *res = reinterpret_cast<s_p_collapse_2_task *>(buffer);
 
-  if (gen_state->icurrent == gen_state->iend &&
-      gen_state->jcurrent == gen_state->jend) {
+  if (gen_state->current.i == gen_state->end.i) {
+    // clang-format off
+    BOOST_ASSERT_MSG(gen_state->remaining_index == 0, "remaining_index should be 0 when i index is out of range, you might passed wrong `all_index_count` parameter");
+    // clang-format on
     return true;
   }
 
@@ -174,10 +169,14 @@ auto s_p_collapse_2_gss_generator(void *state, s_p_dyn_buffer *buffer) -> bool {
   next = std::max(next, gen_state->grain_size);
   next = std::min(next, gen_state->remaining_index);
 
-  *res = gen_state->gen_func(gen_state->icurrent, gen_state->jcurrent, next,
-                             gen_state->gen_func_state);
-  gen_state->icurrent = res->iend;
-  gen_state->jcurrent = res->jend;
-  gen_state->remaining_index -= res->index_count;
+  collapse_2_gss_gen_func_res_t gen_res = gen_state->gen_func(
+      gen_state->current, gen_state->end, next, gen_state->gen_func_state);
+  // clang-format off
+  BOOST_ASSERT_MSG(gen_res.count != 0, "gen_res.count should not be 0, you might passed wrong `all_index_count` parameter");
+  // clang-format on
+  *res = {.ij_begin = gen_state->current, .ij_end = gen_res.ij_end};
+
+  gen_state->current = gen_res.ij_end;
+  gen_state->remaining_index -= gen_res.count;
   return false;
 }
