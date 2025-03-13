@@ -74,9 +74,9 @@ target_link_libraries(s_p_init
     hwy
 )
 
-# target_compile_options(s_p_init
-#     PUBLIC "-fno-stack-protector"
-# )
+target_compile_options(s_p_init
+    PUBLIC "-fno-stack-protector"
+)
 
 set_target_properties(s_p_init
     PROPERTIES
