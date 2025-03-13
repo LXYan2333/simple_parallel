@@ -14,7 +14,8 @@ int main(int argc, char *argv[]) {
     fout << "#pragma once\n\n"
          << "#include <cstddef>\n\n"
          << "namespace simple_parallel {\n"
-         << "constexpr size_t page_size = " << sysconf(_SC_PAGE_SIZE) << ";\n"
+         << "inline constexpr size_t page_size = " << sysconf(_SC_PAGE_SIZE)
+         << ";\n"
          << "} // namespace simple_parallel\n";
     fout.close();
   }
