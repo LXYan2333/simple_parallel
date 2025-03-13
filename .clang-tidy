@@ -19,9 +19,9 @@ FormatStyle:     none
 
 CheckOptions:
   - key: readability-identifier-length.IgnoredVariableNames
-    value: 'x|y|z|pi|e|i|p'
+    value: 'x|y|z|pi|e|i|j|p|ss'
   - key: readability-identifier-length.IgnoredParameterNames
-    value: 'x|y|z|pi|e|i|p'
+    value: 'x|y|z|pi|e|i|j|p|ss'
   - key: readability-magic-numbers.IgnorePowersOf2IntegerValues
     value: true
   - key: cppcoreguidelines-avoid-magic-numbers.IgnorePowersOf2IntegerValues
