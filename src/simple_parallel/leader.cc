@@ -199,12 +199,17 @@ auto is_zeroed_pg_simd(pgnum page_num) -> bool {
   static_assert(page_size % sizeof(uint64_t) == 0);
 
   // NOLINTBEGIN(*-reinterpret-cast,performance-no-int-to-ptr,*-pointer-arithmetic)
-  const auto *begin = reinterpret_cast<uint64_t *>(page_size * page_num);
+  const auto *begin = reinterpret_cast<const uint64_t *>(page_size * page_num);
   constexpr size_t size = page_size / sizeof(uint64_t);
   constexpr size_t half_size = size / 2;
 
   // fast test
-  if (begin[0] != 0 or begin[half_size] != 0) {
+  uint64_t test_1{};
+  uint64_t test_2{};
+  std::memcpy(&test_1, begin, sizeof(test_1));
+  std::memcpy(&test_2, begin + half_size, sizeof(test_2));
+
+  if (test_1 != 0 or test_2 != 0) {
     return false;
   }
 
