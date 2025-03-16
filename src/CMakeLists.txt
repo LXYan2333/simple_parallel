@@ -1,6 +1,7 @@
 set(MI_BUILD_SHARED OFF)
 set(MI_BUILD_STATIC OFF)
 set(MI_BUILD_OBJECT ON)
+set(MI_BUILD_TESTS OFF)
 add_subdirectory(mimalloc_for_simple_parallel SYSTEM)
 add_library(simple_parallel::mimalloc-obj ALIAS mimalloc-obj)
 

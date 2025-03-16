@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdio>
 #include <cstdlib>
+#include <exception>
 #include <fake_main.h>
 #include <fstream>
 #include <gsl/gsl>
@@ -45,9 +46,15 @@ struct main_wrap_params {
   int *ret;
 };
 
-void main_wrap(main_wrap_params *params) {
+void main_wrap(main_wrap_params *params) try {
   *params->ret =
       simple_parallel::original_main(*params->argc, params->argv, params->env);
+} catch (std::exception &e) {
+  std::cerr << "Error: " << e.what() << '\n';
+  *params->ret = 1;
+} catch (...) {
+  std::cerr << "Error: unknown exception\n";
+  *params->ret = 1;
 }
 
 auto check_aslr_disabled(const bmpi::communicator &comm) -> void {
@@ -228,7 +235,7 @@ auto get_mpi_info_from_env() -> mpi_info {
 }
 
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
-auto fake_main(int argc, char **argv, char **env) -> int {
+auto fake_main(int argc, char **argv, char **env) -> int try {
 
   // NOLINTBEGIN(concurrency-mt-unsafe)
   char *world_size_char = std::getenv("OMPI_COMM_WORLD_SIZE");
@@ -337,5 +344,13 @@ auto fake_main(int argc, char **argv, char **env) -> int {
   }
 
   return 0;
+
+} catch (std::exception &e) {
+  std::cerr << "Error: " << e.what() << '\n';
+  return 1;
+} catch (...) {
+  std::cerr << "Error: unknown exception\n";
+  return 1;
 };
+
 } // namespace simple_parallel

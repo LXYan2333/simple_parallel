@@ -54,6 +54,7 @@ target_sources(s_p_init
 )
 
 target_include_directories(s_p_init
+    SYSTEM
     PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../mimalloc_for_simple_parallel/include/
     ${CMAKE_CURRENT_SOURCE_DIR}
@@ -65,8 +66,10 @@ target_link_libraries(s_p_init
     Boost::container
     Boost::mpi
     MPI::MPI_CXX
+    $<TARGET_NAME_IF_EXISTS:Boost::circular_buffer>
     
     PRIVATE
+    $<TARGET_NAME_IF_EXISTS:Boost::icl>
     Boost::thread
     s_p_options
     s_p_warings

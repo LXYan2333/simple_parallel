@@ -50,85 +50,69 @@ using namespace simple_parallel;
 
 static_assert(std::is_trivially_copyable_v<mem_ops_t>);
 
-auto get_next_sym(const char *symbol) -> void * {
-  // call dlerror to clear previous error
-  // NOLINTNEXTLINE(concurrency-mt-unsafe)
-  dlerror();
-
-  void *next_sym = dlsym(RTLD_NEXT, symbol);
-
-  if (next_sym == nullptr) {
-    // NOLINTNEXTLINE(concurrency-mt-unsafe)
-    char *error = dlerror();
-    std::stringstream ss;
-    if (error != nullptr) {
-      ss << error << '\n';
-    } else {
-      ss << "Unknown dlsym error\n";
-    }
-    throw std::runtime_error(ss.str());
-  }
-  return next_sym;
-}
-
-template <class T> struct glibc_alloc {
+template <class T> struct mi_internal_alloc {
   using value_type = T;
 
-  glibc_alloc() = default;
+  mi_internal_alloc() = default;
 
   template <class U>
-  constexpr explicit glibc_alloc(const glibc_alloc<U> & /*other*/) noexcept {}
+  constexpr explicit mi_internal_alloc(
+      const mi_internal_alloc<U> & /*other*/) noexcept {}
 
   [[nodiscard]] auto allocate(std::size_t size) -> T * {
     if (size > std::numeric_limits<std::size_t>::max() / sizeof(T)) {
       throw std::bad_array_new_length();
     }
 
-    // NOLINTBEGIN(*-reinterpret-cast)
-    static auto *orig_malloc =
-        reinterpret_cast<void *(*)(size_t size)>(get_next_sym("malloc"));
-    // NOLINTEND(*-reinterpret-cast)
+    mi_memid_t memid{};
+    mi_stats_t stats{};
 
-    auto p = static_cast<T *>(orig_malloc(size * sizeof(T)));
+    auto p = static_cast<T *>(
+        _mi_os_alloc((sizeof(T) * size) + sizeof(mi_memid_t), &memid, &stats));
 
     if (p == nullptr) {
       throw std::bad_alloc();
     }
+
+    // NOLINTNEXTLINE(*-pointer-arithmetic)
+    memcpy(p + size, &memid, sizeof(mi_memid_t));
     return p;
   }
 
-  void deallocate(T *p, std::size_t /*n*/) noexcept {
-    // NOLINTBEGIN(*-reinterpret-cast)
-    static auto *orig_free =
-        reinterpret_cast<void (*)(void *)>(get_next_sym("free"));
-    // NOLINTEND(*-reinterpret-cast)
-    orig_free(p);
+  void deallocate(T *p, std::size_t size) noexcept {
+    mi_memid_t memid{};
+    mi_stats_t stats{};
+
+    // NOLINTNEXTLINE(*-pointer-arithmetic)
+    memcpy(&memid, p + size, sizeof(mi_memid_t));
+    _mi_os_free(p, sizeof(T) * size, memid, &stats);
   }
 };
 
 template <class T, class U>
-auto operator==(const glibc_alloc<T> & /*lhs*/, const glibc_alloc<U> & /*rhs*/)
-    -> bool {
+auto operator==(const mi_internal_alloc<T> & /*lhs*/,
+                const mi_internal_alloc<U> & /*rhs*/) -> bool {
   return true;
 }
 
 template <class T, class U>
-auto operator!=(const glibc_alloc<T> & /*lhs*/, const glibc_alloc<U> & /*rhs*/)
-    -> bool {
+auto operator!=(const mi_internal_alloc<T> & /*lhs*/,
+                const mi_internal_alloc<U> & /*rhs*/) -> bool {
   return false;
 }
 
 // a boost interval set, using glibc to alloc memory
 template <typename T>
 using my_interval_set =
-    bi::interval_set<T, std::less, bi::right_open_interval<T>, glibc_alloc>;
+    bi::interval_set<T, std::less, bi::right_open_interval<T>,
+                     mi_internal_alloc>;
 
 // This should be a global variable, but since it may be touched before global
 // variable initialization (and cause multi initialization), it is placed into a
 // function
 auto leader_heaps() -> auto & {
   static boost::synchronized_value<
-      std::set<mi_heap_t *, std::less<>, glibc_alloc<mi_heap_t *>>,
+      std::set<mi_heap_t *, std::less<>, mi_internal_alloc<mi_heap_t *>>,
       std::recursive_mutex>
       leader_heaps;
   return leader_heaps;
@@ -245,7 +229,7 @@ void get_zero_and_dirty_pages(my_interval_set<pgnum> &dirty_pages,
     const size_t size = page_range.upper() - page_range.lower();
     const pte_range pgs = {.begin = page_range.lower(), .count = size};
 
-    boost::container::small_vector<pte_range, 16, glibc_alloc<pte_range>>
+    boost::container::small_vector<pte_range, 16, mi_internal_alloc<pte_range>>
         overlap_reduce_rngs;
 
     for (const reduce_area &reduce : reduces) {
@@ -256,7 +240,7 @@ void get_zero_and_dirty_pages(my_interval_set<pgnum> &dirty_pages,
       }
     }
 
-    std::vector<uint64_t, glibc_alloc<uint64_t>> ptes(size);
+    std::vector<uint64_t, mi_internal_alloc<uint64_t>> ptes(size);
     get_pte({.begin = page_range.lower(), .count = size}, ptes);
 
     for (size_t i = 0; i < size; ++i) {
@@ -312,7 +296,8 @@ char sync_mem_stack[1024 * 1024 * 8];
 // function
 auto memory_operations() -> auto & {
   static boost::synchronized_value<
-      std::vector<mem_ops_t, glibc_alloc<mem_ops_t>>, std::recursive_mutex>
+      std::vector<mem_ops_t, mi_internal_alloc<mem_ops_t>>,
+      std::recursive_mutex>
       memory_operations;
   return memory_operations;
 };
@@ -340,7 +325,7 @@ void send_dirty_page(my_interval_set<pgnum> &dirty_pages,
 
 void send_zeroed_page(my_interval_set<pgnum> &zero_pages,
                       const bmpi::communicator &comm, int root_rank) {
-  std::vector<pte_range, glibc_alloc<pte_range>> zeroed_pages;
+  std::vector<pte_range, mi_internal_alloc<pte_range>> zeroed_pages;
   for (const bi::right_open_interval<pgnum> &page_range : zero_pages) {
     zeroed_pages.emplace_back(page_range.lower(),
                               page_range.upper() - page_range.lower());
@@ -410,7 +395,7 @@ struct enter_parallel_impl_params {
   std::span<const reduce_area> reduces;
 };
 
-void enter_parallel_impl(enter_parallel_impl_params *params) {
+void enter_parallel_impl(enter_parallel_impl_params *params) try {
   static mi_heap_t *mpi_heap = mi_heap_new();
   mi_heap_t *default_heap = mi_heap_get_default();
   mi_heap_set_default(mpi_heap);
@@ -425,10 +410,14 @@ void enter_parallel_impl(enter_parallel_impl_params *params) {
 
   send_heap(*params->comm, *params->root_rank, params->reduces);
 
-  MPI_Bcast(params->parallel_ctx, sizeof(ucontext_t), MPI_BYTE,
-            *params->root_rank, *params->comm);
+  MPI_Bcast(static_cast<void *>(&params->parallel_ctx), sizeof(ucontext_t *),
+            MPI_BYTE, *params->root_rank, *params->comm);
 
   clear_soft_dirty();
+} catch (std::exception &e) {
+  std::cerr << "Error: " << e.what() << '\n';
+} catch (...) {
+  std::cerr << "Error: unknown exception\n";
 }
 
 } // namespace

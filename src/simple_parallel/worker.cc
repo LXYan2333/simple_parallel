@@ -140,9 +140,10 @@ void enter_parallel_impl(const bmpi::communicator &comm, int root_rank) {
 
   recv_heap(comm, root_rank);
 
-  ucontext_t parallel_ctx;
-  MPI_Bcast(&parallel_ctx, sizeof(ucontext_t), MPI_BYTE, root_rank, comm);
-  swapcontext(&worker_ctx, &parallel_ctx);
+  ucontext_t *parallel_ctx = nullptr;
+  MPI_Bcast(static_cast<void *>(&parallel_ctx), sizeof(ucontext_t *), MPI_BYTE,
+            root_rank, comm);
+  swapcontext(&worker_ctx, parallel_ctx);
 }
 
 } // namespace
