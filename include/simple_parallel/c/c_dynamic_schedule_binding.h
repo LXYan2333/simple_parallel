@@ -106,7 +106,7 @@ _Pragma("omp single copyprivate(_s_p_scheduler)")                              \
           (size_t)omp_get_num_threads() * 40, _s_p_communicator);              \
       _s_p_scheduler = s_p_new_dynamic_schedule(                               \
           s_p_gss_generator, &_s_p_gss_state, _s_p_communicator,               \
-          (size_t)omp_get_num_threads() * 4);                                  \
+          (size_t)omp_get_num_threads());                                      \
     }                                                                          \
     s_p_simple_task *_s_p_gss_task_buffer =                                    \
         (s_p_simple_task *)s_p_get_buffer(_s_p_scheduler);                     \
