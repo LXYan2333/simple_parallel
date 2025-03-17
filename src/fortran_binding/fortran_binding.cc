@@ -133,7 +133,7 @@ extern "C" void s_p_f_ctx_add_reduce_area(par_ctx_fortran_binding *ctx,
     } else {
       ss << "Error: Unsupported Fortran type\n";
     }
-    throw std::runtime_error(ss.str());
+    throw std::runtime_error(std::move(ss).str());
   }
 
   size_t len = 1;

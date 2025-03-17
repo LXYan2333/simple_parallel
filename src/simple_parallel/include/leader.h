@@ -34,7 +34,7 @@ struct mmap_params {
       std::stringstream ss;
       // NOLINTNEXTLINE(concurrency-mt-unsafe)
       ss << "Failed to mmap, reason: " << std::strerror(errno);
-      throw std::runtime_error(ss.str());
+      throw std::runtime_error(std::move(ss).str());
     };
   }
 };
@@ -52,7 +52,7 @@ struct munmap_params {
       ss << "Failed to occupy the unmaped area in worker process, reason: "
          // NOLINTNEXTLINE(concurrency-mt-unsafe)
          << std::strerror(errno);
-      throw std::runtime_error(ss.str());
+      throw std::runtime_error(std::move(ss).str());
     };
   }
 };

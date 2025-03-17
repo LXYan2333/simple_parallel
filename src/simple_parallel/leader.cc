@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <bigmpi.h>
 #include <boost/assert.hpp>
+#include <boost/container/flat_set.hpp>
 #include <boost/container/small_vector.hpp>
 #include <boost/icl/interval_set.hpp>
 #include <boost/icl/right_open_interval.hpp>
@@ -112,7 +113,10 @@ using my_interval_set =
 // function
 auto leader_heaps() -> auto & {
   static boost::synchronized_value<
-      std::set<mi_heap_t *, std::less<>, mi_internal_alloc<mi_heap_t *>>,
+      boost::container::flat_set<
+          mi_heap_t *, std::less<>,
+          boost::container::small_vector<mi_heap_t *, 256,
+                                         mi_internal_alloc<mi_heap_t *>>>,
       std::recursive_mutex>
       leader_heaps;
   return leader_heaps;
@@ -229,8 +233,7 @@ void get_zero_and_dirty_pages(my_interval_set<pgnum> &dirty_pages,
     const size_t size = page_range.upper() - page_range.lower();
     const pte_range pgs = {.begin = page_range.lower(), .count = size};
 
-    boost::container::small_vector<pte_range, 16, mi_internal_alloc<pte_range>>
-        overlap_reduce_rngs;
+    boost::container::small_vector<pte_range, 16> overlap_reduce_rngs;
 
     for (const reduce_area &reduce : reduces) {
       const std::optional<pte_range> reduce_rng =
@@ -240,7 +243,7 @@ void get_zero_and_dirty_pages(my_interval_set<pgnum> &dirty_pages,
       }
     }
 
-    std::vector<uint64_t, mi_internal_alloc<uint64_t>> ptes(size);
+    std::vector<uint64_t> ptes(size);
     get_pte({.begin = page_range.lower(), .count = size}, ptes);
 
     for (size_t i = 0; i < size; ++i) {
@@ -325,7 +328,7 @@ void send_dirty_page(my_interval_set<pgnum> &dirty_pages,
 
 void send_zeroed_page(my_interval_set<pgnum> &zero_pages,
                       const bmpi::communicator &comm, int root_rank) {
-  std::vector<pte_range, mi_internal_alloc<pte_range>> zeroed_pages;
+  std::vector<pte_range> zeroed_pages;
   for (const bi::right_open_interval<pgnum> &page_range : zero_pages) {
     zeroed_pages.emplace_back(page_range.lower(),
                               page_range.upper() - page_range.lower());
@@ -462,7 +465,7 @@ void reduce_area::init_reduce_area_on_worker() const {
        << op_2_name.at(m_op)
        << " is not supported by simple_parallel. You can manually call "
           "`MPI_Reduce` to reduce your array/value.\n";
-    throw std::runtime_error(ss.str());
+    throw std::runtime_error(std::move(ss).str());
   };
 
   const bool is_zero_init_when_sum = std::ranges::any_of(
@@ -539,7 +542,7 @@ void par_ctx_base::verify_reduces_no_overlap() const {
            << " reduce area and " << get_number_with_ordinal_suffix(rhs + 1)
            << " reduce area overlaps. Please check your reduce input "
               "parameter.\n";
-        throw std::runtime_error(ss.str());
+        throw std::runtime_error(std::move(ss).str());
       }
     }
   }
@@ -561,7 +564,7 @@ void par_ctx_base::do_enter_parallel(bool enter_parallel) {
   if (in_parallel) {
     std::stringstream ss;
     ss << "Error: nested parallel is not supported\n";
-    throw std::runtime_error(ss.str());
+    throw std::runtime_error(std::move(ss).str());
   }
   in_parallel = true;
   entered_parallel = true;
@@ -569,7 +572,7 @@ void par_ctx_base::do_enter_parallel(bool enter_parallel) {
     std::stringstream ss;
     // NOLINTNEXTLINE(concurrency-mt-unsafe)
     ss << "Failed to getcontext, reason: " << std::strerror(errno);
-    throw std::runtime_error(ss.str());
+    throw std::runtime_error(std::move(ss).str());
   }
   m_sync_mem_ctx.uc_link = &m_parallel_ctx;
   m_sync_mem_ctx.uc_stack.ss_sp = &sync_mem_stack[0];
@@ -594,7 +597,7 @@ void par_ctx_base::do_enter_parallel(bool enter_parallel) {
     std::stringstream ss;
     // NOLINTNEXTLINE(concurrency-mt-unsafe)
     ss << "Failed to swapcontext, reason: " << std::strerror(errno);
-    throw std::runtime_error(ss.str());
+    throw std::runtime_error(std::move(ss).str());
   }
 
   if (debug()) {

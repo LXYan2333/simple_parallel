@@ -28,7 +28,7 @@ class pagemap {
       ss << "Failed to open /proc/self/pagemap, reason: "
          // NOLINTNEXTLINE(concurrency-mt-unsafe)
          << std::strerror(errno);
-      throw std::runtime_error(ss.str());
+      throw std::runtime_error(std::move(ss).str());
     }
   }
 
@@ -61,7 +61,7 @@ public:
       ss << "Failed to read /proc/self/pagemap, reason: "
          // NOLINTNEXTLINE(concurrency-mt-unsafe)
          << std::strerror(errno);
-      throw std::runtime_error(ss.str());
+      throw std::runtime_error(std::move(ss).str());
     }
   }
 };

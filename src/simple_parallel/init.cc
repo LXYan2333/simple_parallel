@@ -30,6 +30,7 @@
 #include <init.h>
 
 namespace bmpi = boost::mpi;
+using namespace std::literals;
 
 namespace {
 
@@ -70,7 +71,7 @@ auto check_aslr_disabled(const bmpi::communicator &comm) -> void {
   } catch (...) {
     std::stringstream ss;
     ss << "Failed to parse /proc/self/personality, str: " << line << '\n';
-    throw std::runtime_error(ss.str());
+    throw std::runtime_error(std::move(ss).str());
   }
 
   // exit if ASLR is disabled
@@ -98,7 +99,7 @@ void check_pagesize() {
        << actual_pagesize << '\n'
        << "You must recompile simple_parallel again on this machine. "
           "CMake will detect the correct page size automatically.\n";
-    throw std::runtime_error(ss.str());
+    throw std::runtime_error(std::move(ss).str());
   }
 }
 
@@ -108,7 +109,7 @@ auto get_avail_cpu_count() -> size_t {
     std::stringstream ss;
     // NOLINTNEXTLINE(concurrency-mt-unsafe)
     ss << "Failed to get CPU affinity, reason: " << std::strerror(errno);
-    throw std::runtime_error(ss.str());
+    throw std::runtime_error(std::move(ss).str());
   };
   auto cpusetsize = static_cast<size_t>(CPU_COUNT(&set));
   return cpusetsize;
@@ -127,7 +128,7 @@ void check_cpu_binding(int rank) {
           "This can be easily solved by adding `--bind-to none` to mpirun argument\n"
           "If you believe this is a false positive error, please set SIMPLE_PARALLEL_SKIP_CORE_BIND_CHECK environment variable to any value.\n";
     // clang-format on
-    throw std::runtime_error(ss.str());
+    throw std::runtime_error(std::move(ss).str());
   }
 }
 
@@ -249,8 +250,32 @@ auto fake_main(int argc, char **argv, char **env) -> int try {
     std::ignore = std::getchar();
   }
 
-  auto *mpi_env = new std::optional<bmpi::environment>{
-      std::in_place, argc, argv, bmpi::threading::funneled};
+  bmpi::threading::level thread_level = bmpi::threading::serialized;
+
+  // NOLINTBEGIN(concurrency-mt-unsafe)
+  const char *env_thread_level =
+      std::getenv("SIMPLE_PARALLEL_MPI_THREAD_LEVEL");
+  // NOLINTEND(concurrency-mt-unsafe)
+  if (env_thread_level != nullptr) {
+    if (env_thread_level == "single"sv) {
+      thread_level = bmpi::threading::single;
+    } else if (env_thread_level == "funneled"sv) {
+      thread_level = bmpi::threading::funneled;
+    } else if (env_thread_level == "serialized"sv) {
+      thread_level = bmpi::threading::serialized;
+    } else if (env_thread_level == "multiple"sv) {
+      thread_level = bmpi::threading::multiple;
+    } else {
+      std::stringstream ss;
+      ss << "Invalid SIMPLE_PARALLEL_MPI_THREAD_LEVEL: " << env_thread_level
+         << '\n';
+      throw std::runtime_error(std::move(ss).str());
+    }
+  }
+
+  // NOLINTNEXTLINE(*-owning-memory)
+  auto *mpi_env = new std::optional<bmpi::environment>{std::in_place, argc,
+                                                       argv, thread_level};
   auto del_mpi_env = gsl::finally([&]() { mpi_env->reset(); });
   bmpi::communicator world{};
 
@@ -316,7 +341,7 @@ auto fake_main(int argc, char **argv, char **env) -> int try {
       std::stringstream ss;
       // NOLINTNEXTLINE(concurrency-mt-unsafe)
       ss << "Failed to getcontext, reason: " << std::strerror(errno);
-      throw std::runtime_error(ss.str());
+      throw std::runtime_error(std::move(ss).str());
     };
 
     fake_stack_context.uc_link = &fake_main_context;
@@ -334,7 +359,7 @@ auto fake_main(int argc, char **argv, char **env) -> int try {
       std::stringstream ss;
       // NOLINTNEXTLINE(concurrency-mt-unsafe)
       ss << "Failed to swapcontext, reason: " << std::strerror(errno);
-      throw std::runtime_error(ss.str());
+      throw std::runtime_error(std::move(ss).str());
     };
     finished = true;
     send_rpc_tag(rpc_tag::exit, 0, s_p_comm.value());

@@ -48,7 +48,7 @@ void reserve_heap_area() {
                 "Reason: "
              // NOLINTNEXTLINE(concurrency-mt-unsafe)
              << std::strerror(errno);
-          throw std::runtime_error(ss.str());
+          throw std::runtime_error(std::move(ss).str());
         }
         continue;
       } else {
@@ -65,7 +65,7 @@ void reserve_heap_area() {
              << "or set SIMPLE_PARALLEL_RESERVED_HEAP_SIZE environment "
                 "variable (default 0x100000000000) to a smaller value might "
                 "solve this problem.";
-          throw std::runtime_error(ss.str());
+          throw std::runtime_error(std::move(ss).str());
         }
         munmap(ptr, reserved_heap.size_bytes());
       }
