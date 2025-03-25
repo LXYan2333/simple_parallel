@@ -99,7 +99,9 @@ bool s_p_collapse_2_gss_generator(void *state, s_p_dyn_buffer *buffer);
   {                                                                            \
     s_p_gss_state_t _s_p_gss_state;                                            \
     s_p_dynamic_schedule *_s_p_scheduler = NULL;                               \
-_Pragma("omp single copyprivate(_s_p_scheduler)")                              \
+    int _num_threads_count = omp_get_num_threads();                            \
+    int *_num_threads_count_ptr = NULL;                                        \
+_Pragma("omp single copyprivate(_s_p_scheduler,_num_threads_count_ptr)")       \
     {                                                                          \
       _s_p_gss_state = s_p_new_gss_state(                                      \
           _s_p_begin, _s_p_end, _s_p_grain_size,                               \
@@ -107,6 +109,7 @@ _Pragma("omp single copyprivate(_s_p_scheduler)")                              \
       _s_p_scheduler = s_p_new_dynamic_schedule(                               \
           s_p_gss_generator, &_s_p_gss_state, _s_p_communicator,               \
           (size_t)omp_get_num_threads());                                      \
+      _num_threads_count_ptr = &_num_threads_count;                            \
     }                                                                          \
     s_p_simple_task *_s_p_gss_task_buffer =                                    \
         (s_p_simple_task *)s_p_get_buffer(_s_p_scheduler);                     \
@@ -131,13 +134,14 @@ _Pragma("omp critical(_s_p_scheduler_gen)")                                    \
 #define S_P_GSS_UINT64_T_PAR_FOR_END                                           \
       }                                                                        \
     }                                                                          \
-    _Pragma("omp barrier")                                                     \
-    _Pragma("omp single")                                                      \
+_Pragma("omp critical(_s_p_last_treads)")                                      \
     {                                                                          \
-      s_p_delete_dynamic_schedule(_s_p_scheduler);                             \
+      *_num_threads_count_ptr -= 1;                                            \
+      if (*_num_threads_count_ptr == 0) {                                      \
+        s_p_delete_dynamic_schedule(_s_p_scheduler);                           \
+      }                                                                        \
     }                                                                          \
   }
-// clang-format on
 
 #define S_P_GSS_UINT64_T_PAR_FOR_COLLAPSE_2(                                   \
     _s_p_grain_size, _s_p_communicator, _s_p_all_index_count,                  \
@@ -148,7 +152,10 @@ _Pragma("omp critical(_s_p_scheduler_gen)")                                    \
     s_p_collapse_2_gss_state_t _s_p_collapse_2gss_state;                       \
     s_p_dynamic_schedule *_s_p_scheduler = NULL;                               \
     const s_p_ij_point_t _s_p_final_end = {_s_p_i_end, _s_p_j_end};            \
-    _Pragma("omp single copyprivate(_s_p_scheduler)") {                        \
+    int _num_threads_count = omp_get_num_threads();                            \
+    int *_num_threads_count_ptr = NULL;                                        \
+_Pragma("omp single copyprivate(_s_p_scheduler,_num_threads_count_ptr)")       \
+    {                                                                          \
       _s_p_collapse_2gss_state = s_p_new_collapse_2_gss_state(                 \
           _s_p_i_begin, _s_p_i_end, _s_p_j_begin, _s_p_j_end, _s_p_grain_size, \
           _s_p_all_index_count, _s_p_collapse_2_gss_gen_func,                  \
@@ -157,13 +164,15 @@ _Pragma("omp critical(_s_p_scheduler_gen)")                                    \
       _s_p_scheduler = s_p_new_dynamic_schedule(                               \
           s_p_collapse_2_gss_generator, &_s_p_collapse_2gss_state,             \
           _s_p_communicator, (size_t)omp_get_num_threads());                   \
+      _num_threads_count_ptr = &_num_threads_count;                            \
     }                                                                          \
     s_p_collapse_2_task *_s_p_gss_collapse_2_task_buffer =                     \
         (s_p_collapse_2_task *)s_p_get_buffer(_s_p_scheduler);                 \
     s_p_collapse_2_task _s_p_collapse_2_gss_task;                              \
     while (true) {                                                             \
       bool _s_p_done = false;                                                  \
-      _Pragma("omp critical(_s_p_scheduler_gen)") {                            \
+_Pragma("omp critical(_s_p_scheduler_gen)")                                    \
+      {                                                                        \
         if (s_p_done(_s_p_scheduler)) {                                        \
           _s_p_done = true;                                                    \
         } else {                                                               \
@@ -185,11 +194,14 @@ _Pragma("omp critical(_s_p_scheduler_gen)")                                    \
         uint64_t _s_p_j_index_var = _s_p_ij.j;
 
 #define S_P_GSS_UINT64_T_PAR_FOR_COLLAPSE_2_END                                \
-  }                                                                            \
-  }                                                                            \
-  _Pragma("omp barrier") _Pragma("omp single") {                               \
-    s_p_delete_dynamic_schedule(_s_p_scheduler);                               \
-  }                                                                            \
+      }                                                                        \
+    }                                                                          \
+_Pragma("omp critical(_s_p_last_treads)")                                      \
+    {                                                                          \
+      *_num_threads_count_ptr -= 1;                                            \
+      if (*_num_threads_count_ptr == 0) {                                      \
+        s_p_delete_dynamic_schedule(_s_p_scheduler);                           \
+      }                                                                        \
+    }                                                                          \
   }
-// clang-format off
 // clang-format on
