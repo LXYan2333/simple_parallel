@@ -26,7 +26,6 @@
 #include <mutex>
 #include <page_size.h>
 #include <pagemap.h>
-#include <set>
 #include <simple_parallel/cxx/simple_parallel.h>
 #include <span>
 #include <sstream>
@@ -51,14 +50,14 @@ using namespace simple_parallel;
 
 static_assert(std::is_trivially_copyable_v<mem_ops_t>);
 
-template <class T> struct mi_internal_alloc {
+template <class T> struct mi_internal_os_alloc {
   using value_type = T;
 
-  mi_internal_alloc() = default;
+  mi_internal_os_alloc() = default;
 
   template <class U>
-  constexpr explicit mi_internal_alloc(
-      const mi_internal_alloc<U> & /*other*/) noexcept {}
+  constexpr explicit mi_internal_os_alloc(
+      const mi_internal_os_alloc<U> & /*other*/) noexcept {}
 
   [[nodiscard]] auto allocate(std::size_t size) -> T * {
     if (size > std::numeric_limits<std::size_t>::max() / sizeof(T)) {
@@ -66,18 +65,20 @@ template <class T> struct mi_internal_alloc {
     }
 
     mi_memid_t memid{};
+    static_assert(std::is_trivially_copyable_v<mi_memid_t>);
     mi_stats_t stats{};
 
-    auto p = static_cast<T *>(
-        _mi_os_alloc((sizeof(T) * size) + sizeof(mi_memid_t), &memid, &stats));
+    void *p =
+        _mi_os_alloc((sizeof(T) * size) + sizeof(mi_memid_t), &memid, &stats);
 
     if (p == nullptr) {
       throw std::bad_alloc();
     }
 
     // NOLINTNEXTLINE(*-pointer-arithmetic)
-    memcpy(p + size, &memid, sizeof(mi_memid_t));
-    return p;
+    memcpy(static_cast<char *>(p) + (size * sizeof(T)), &memid,
+           sizeof(mi_memid_t));
+    return static_cast<T *>(p);
   }
 
   void deallocate(T *p, std::size_t size) noexcept {
@@ -86,19 +87,19 @@ template <class T> struct mi_internal_alloc {
 
     // NOLINTNEXTLINE(*-pointer-arithmetic)
     memcpy(&memid, p + size, sizeof(mi_memid_t));
-    _mi_os_free(p, sizeof(T) * size, memid, &stats);
+    _mi_os_free(p, (sizeof(T) * size) + sizeof(mi_memid_t), memid, &stats);
   }
 };
 
 template <class T, class U>
-auto operator==(const mi_internal_alloc<T> & /*lhs*/,
-                const mi_internal_alloc<U> & /*rhs*/) -> bool {
+auto operator==(const mi_internal_os_alloc<T> & /*lhs*/,
+                const mi_internal_os_alloc<U> & /*rhs*/) -> bool {
   return true;
 }
 
 template <class T, class U>
-auto operator!=(const mi_internal_alloc<T> & /*lhs*/,
-                const mi_internal_alloc<U> & /*rhs*/) -> bool {
+auto operator!=(const mi_internal_os_alloc<T> & /*lhs*/,
+                const mi_internal_os_alloc<U> & /*rhs*/) -> bool {
   return false;
 }
 
@@ -106,7 +107,7 @@ auto operator!=(const mi_internal_alloc<T> & /*lhs*/,
 template <typename T>
 using my_interval_set =
     bi::interval_set<T, std::less, bi::right_open_interval<T>,
-                     mi_internal_alloc>;
+                     mi_internal_os_alloc>;
 
 // This should be a global variable, but since it may be touched before global
 // variable initialization (and cause multi initialization), it is placed into a
@@ -116,7 +117,7 @@ auto leader_heaps() -> auto & {
       boost::container::flat_set<
           mi_heap_t *, std::less<>,
           boost::container::small_vector<mi_heap_t *, 256,
-                                         mi_internal_alloc<mi_heap_t *>>>,
+                                         mi_internal_os_alloc<mi_heap_t *>>>,
       std::recursive_mutex>
       leader_heaps;
   return leader_heaps;
@@ -250,7 +251,11 @@ void get_zero_and_dirty_pages(my_interval_set<pgnum> &dirty_pages,
       const pte pte_i = pte{ptes[i]};
       const pgnum page_num = page_range.lower() + i;
 
-      if (!pte_i.is_present() or !pte_i.is_dirty()) {
+      if (!pte_i.is_dirty()) {
+        continue;
+      }
+
+      if (!pte_i.is_touched()) {
         continue;
       }
 
@@ -299,7 +304,8 @@ char sync_mem_stack[1024 * 1024 * 8];
 // function
 auto memory_operations() -> auto & {
   static boost::synchronized_value<
-      std::vector<mem_ops_t, mi_internal_alloc<mem_ops_t>>,
+      boost::container::small_vector<mem_ops_t, 256,
+                                     mi_internal_os_alloc<mem_ops_t>>,
       std::recursive_mutex>
       memory_operations;
   return memory_operations;
@@ -396,6 +402,7 @@ struct enter_parallel_impl_params {
   const int *root_rank;
   ucontext_t *parallel_ctx;
   std::span<const reduce_area> reduces;
+  std::exception_ptr exception;
 };
 
 void enter_parallel_impl(enter_parallel_impl_params *params) try {
@@ -417,10 +424,8 @@ void enter_parallel_impl(enter_parallel_impl_params *params) try {
             MPI_BYTE, *params->root_rank, *params->comm);
 
   clear_soft_dirty();
-} catch (std::exception &e) {
-  std::cerr << "Error: " << e.what() << '\n';
 } catch (...) {
-  std::cerr << "Error: unknown exception\n";
+  params->exception = std::current_exception();
 }
 
 } // namespace
@@ -583,12 +588,17 @@ void par_ctx_base::do_enter_parallel(bool enter_parallel) {
   enter_parallel_impl_params params{.comm = m_comm,
                                     .root_rank = &m_root_rank,
                                     .parallel_ctx = &m_parallel_ctx,
-                                    .reduces = m_reduces};
+                                    .reduces = m_reduces,
+                                    .exception = nullptr};
 
   // NOLINTBEGIN(*-vararg,*-reinterpret-cast)
   makecontext(&m_sync_mem_ctx,
               reinterpret_cast<void (*)()>(enter_parallel_impl), 1, &params);
   // NOLINTEND(*-vararg,*-reinterpret-cast)
+
+  if (params.exception) {
+    std::rethrow_exception(params.exception);
+  }
 
   verify_reduces_no_overlap();
 

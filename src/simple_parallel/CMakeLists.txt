@@ -77,9 +77,39 @@ target_link_libraries(s_p_init
     hwy
 )
 
-target_compile_options(s_p_init
-    PUBLIC "-fno-stack-protector"
-)
+include(CheckCompilerFlag)
+check_compiler_flag(CXX -fno-stack-protector S_P_CXX_HAS_NO_STACK_PROTECTOR)
+if(S_P_CXX_HAS_NO_STACK_PROTECTOR)
+    target_compile_options(s_p_init
+        PUBLIC $<$<COMPILE_LANGUAGE:CXX>:-fno-stack-protector>
+    )
+endif()
+
+if(CMAKE_C_COMPILER_LOADED)
+    check_compiler_flag(C -fno-stack-protector S_P_C_HAS_NO_STACK_PROTECTOR)
+    if(S_P_C_HAS_NO_STACK_PROTECTOR)
+        target_compile_options(s_p_init
+            PUBLIC $<$<COMPILE_LANGUAGE:C>:-fno-stack-protector>
+        )
+    endif()
+endif()
+
+if(CMAKE_Fortran_COMPILER_LOADED)
+    check_compiler_flag(Fortran -fno-stack-protector S_P_Fortran_HAS_NO_STACK_PROTECTOR)
+    if(S_P_Fortran_HAS_NO_STACK_PROTECTOR)
+        target_compile_options(s_p_init
+            PUBLIC $<$<COMPILE_LANGUAGE:Fortran>:-fno-stack-protector>
+        )
+    endif()
+
+    # static array can not be automatically synchronized, thus force the compiler to place them in the stack
+    check_compiler_flag(Fortran -frecursive S_P_Fortran_HAS_RECURSIVE)
+    if(S_P_Fortran_HAS_RECURSIVE)
+        target_compile_options(s_p_init
+            PUBLIC $<$<COMPILE_LANGUAGE:Fortran>:-frecursive>
+        )
+    endif()
+endif()
 
 set_target_properties(s_p_init
     PROPERTIES

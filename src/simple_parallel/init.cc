@@ -45,16 +45,14 @@ struct main_wrap_params {
   char **argv;
   char **env;
   int *ret;
+  std::exception_ptr exception;
 };
 
 void main_wrap(main_wrap_params *params) try {
   *params->ret =
       simple_parallel::original_main(*params->argc, params->argv, params->env);
-} catch (std::exception &e) {
-  std::cerr << "Error: " << e.what() << '\n';
-  *params->ret = 1;
 } catch (...) {
-  std::cerr << "Error: unknown exception\n";
+  params->exception = std::current_exception();
   *params->ret = 1;
 }
 
@@ -277,101 +275,115 @@ auto fake_main(int argc, char **argv, char **env) -> int try {
   auto *mpi_env = new std::optional<bmpi::environment>{std::in_place, argc,
                                                        argv, thread_level};
   auto del_mpi_env = gsl::finally([&]() { mpi_env->reset(); });
-  bmpi::communicator world{};
+  try {
+    bmpi::communicator world{};
 
-  // If the program calls exit(), the destructor of mpi_env will not be called
-  // and MPI will complain about it. Destruct it manually in this case.
-  struct exit_work_param {
-    std::optional<bmpi::environment> *env;
-  };
-  auto exit_work = +[](int, void *param_v) {
-    // NOLINTNEXTLINE(*use-auto)
-    gsl::owner<exit_work_param *> param =
-        static_cast<gsl::owner<exit_work_param *>>(param_v);
-    if (param->env->has_value()) {
-      finished = true;
-      send_rpc_tag(rpc_tag::exit, 0, s_p_comm.value());
-      param->env->reset();
+    // If the program calls exit(), the destructor of mpi_env will not be called
+    // and MPI will complain about it. Destruct it manually in this case.
+    struct exit_work_param {
+      std::optional<bmpi::environment> *env;
+    };
+    auto exit_work = +[](int, void *param_v) {
+      // NOLINTNEXTLINE(*use-auto)
+      gsl::owner<exit_work_param *> param =
+          static_cast<gsl::owner<exit_work_param *>>(param_v);
+      if (param->env->has_value()) {
+        finished = true;
+        send_rpc_tag(rpc_tag::exit, 0, s_p_comm.value());
+        param->env->reset();
+      }
+      delete param;
+    };
+    on_exit(exit_work,
+            gsl::owner<exit_work_param *>{new exit_work_param{.env = mpi_env}});
+
+    check_pagesize();
+
+    s_p_comm = {world, bmpi::comm_duplicate};
+    s_p_comm_self = {MPI_COMM_SELF, bmpi::comm_duplicate};
+
+    check_cpu_binding(s_p_comm->rank());
+
+    if (world_size_char == nullptr || world_rank_char == nullptr) {
+      if (world.size() > 1) {
+        std::cerr
+            << "Error: This program is linked to/started from MPI "
+               "implementation other than OpenMPI, abort.\nPlease start the "
+               "program with OpenMPI.\n";
+        return 1;
+      }
+      std::cerr << "WARNING: This program is linked to simple_parallel library "
+                   "but not start from OpenMPI, it will run without distribute "
+                   "memory parallel support.\n";
+      return original_main(argc, argv, env);
     }
-    delete param;
-  };
-  on_exit(exit_work,
-          gsl::owner<exit_work_param *>{new exit_work_param{.env = mpi_env}});
 
-  check_pagesize();
+    BOOST_ASSERT(world.size() == world_size);
+    BOOST_ASSERT(world.rank() == world_rank);
 
-  s_p_comm = {world, bmpi::comm_duplicate};
-  s_p_comm_self = {MPI_COMM_SELF, bmpi::comm_duplicate};
-
-  check_cpu_binding(s_p_comm->rank());
-
-  if (world_size_char == nullptr || world_rank_char == nullptr) {
     if (world.size() > 1) {
-      std::cerr
-          << "Error: This program is linked to/started from MPI "
-             "implementation other than OpenMPI, abort.\nPlease start the "
-             "program with OpenMPI.\n";
-      return 1;
+      check_aslr_disabled(s_p_comm.value());
     }
-    std::cerr << "WARNING: This program is linked to simple_parallel library "
-                 "but not start from OpenMPI, it will run without distribute "
-                 "memory parallel support.\n";
-    return original_main(argc, argv, env);
-  }
 
-  BOOST_ASSERT(world.size() == world_size);
-  BOOST_ASSERT(world.rank() == world_rank);
+    if (world_rank == 0) {
+      // a new heap is used for the main thread, so mem allocated in initialize
+      // is not synchronized.
+      mi_heap_t *main_process_heap = mi_heap_new();
+      mi_heap_set_default(main_process_heap);
+      register_heap(main_process_heap);
 
-  if (world.size() > 1) {
-    check_aslr_disabled(s_p_comm.value());
-  }
+      clear_soft_dirty();
 
-  if (world_rank == 0) {
-    // a new heap is used for the main thread, so mem allocated in initialize is
-    // not synchronized.
-    mi_heap_t *main_process_heap = mi_heap_new();
-    mi_heap_set_default(main_process_heap);
-    register_heap(main_process_heap);
+      ucontext_t fake_stack_context;
+      ucontext_t fake_main_context;
+      if (getcontext(&fake_stack_context) == -1) {
+        std::stringstream ss;
+        // NOLINTNEXTLINE(concurrency-mt-unsafe)
+        ss << "Failed to getcontext, reason: " << std::strerror(errno);
+        throw std::runtime_error(std::move(ss).str());
+      };
 
-    clear_soft_dirty();
+      fake_stack_context.uc_link = &fake_main_context;
+      fake_stack_context.uc_stack.ss_sp = fake_stack.data();
+      fake_stack_context.uc_stack.ss_size = fake_stack.size_bytes();
 
-    ucontext_t fake_stack_context;
-    ucontext_t fake_main_context;
-    if (getcontext(&fake_stack_context) == -1) {
-      std::stringstream ss;
-      // NOLINTNEXTLINE(concurrency-mt-unsafe)
-      ss << "Failed to getcontext, reason: " << std::strerror(errno);
-      throw std::runtime_error(std::move(ss).str());
-    };
-
-    fake_stack_context.uc_link = &fake_main_context;
-    fake_stack_context.uc_stack.ss_sp = fake_stack.data();
-    fake_stack_context.uc_stack.ss_size = fake_stack.size_bytes();
-
-    int ret{};
-    main_wrap_params params{
-        .argc = &argc, .argv = argv, .env = env, .ret = &ret};
-    // requires glibc > 2.8 to use 64bit pointers in makecontext
-    // NOLINTNEXTLINE(*-vararg,*-reinterpret-cast)
-    makecontext(&fake_stack_context, reinterpret_cast<void (*)()>(main_wrap), 1,
-                &params);
-    if (swapcontext(&fake_main_context, &fake_stack_context) == -1) {
-      std::stringstream ss;
-      // NOLINTNEXTLINE(concurrency-mt-unsafe)
-      ss << "Failed to swapcontext, reason: " << std::strerror(errno);
-      throw std::runtime_error(std::move(ss).str());
-    };
-    finished = true;
-    send_rpc_tag(rpc_tag::exit, 0, s_p_comm.value());
-    return ret;
-  } else {
-    return worker(s_p_comm.value(), 0);
-  }
+      int ret{};
+      main_wrap_params params{.argc = &argc,
+                              .argv = argv,
+                              .env = env,
+                              .ret = &ret,
+                              .exception = nullptr};
+      // requires glibc > 2.8 to use 64bit pointers in makecontext
+      // NOLINTNEXTLINE(*-vararg,*-reinterpret-cast)
+      makecontext(&fake_stack_context, reinterpret_cast<void (*)()>(main_wrap),
+                  1, &params);
+      if (swapcontext(&fake_main_context, &fake_stack_context) == -1) {
+        std::stringstream ss;
+        // NOLINTNEXTLINE(concurrency-mt-unsafe)
+        ss << "Failed to swapcontext, reason: " << std::strerror(errno);
+        throw std::runtime_error(std::move(ss).str());
+      };
+      finished = true;
+      if (params.exception) {
+        std::rethrow_exception(params.exception);
+      }
+      send_rpc_tag(rpc_tag::exit, 0, s_p_comm.value());
+      return ret;
+    } else {
+      return worker(s_p_comm.value(), 0);
+    }
+  } catch (std::exception &e) {
+    std::cerr << e.what() << '\n';
+    return 1;
+  } catch (...) {
+    std::cerr << "Error: unknown exception\n";
+    return 1;
+  };
 
   return 0;
 
 } catch (std::exception &e) {
-  std::cerr << "Error: " << e.what() << '\n';
+  std::cerr << e.what() << '\n';
   return 1;
 } catch (...) {
   std::cerr << "Error: unknown exception\n";

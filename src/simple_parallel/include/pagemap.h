@@ -20,6 +20,7 @@ class pte {
 
   static constexpr entry_t dirty_bit = 1ULL << 55ULL;
   static constexpr entry_t present_bit = 1ULL << 63ULL;
+  static constexpr entry_t swap_bit = 1ULL << 62ULL;
 
 public:
   explicit pte(uint64_t entry) : m_entry(entry) {}
@@ -30,13 +31,20 @@ public:
     return (m_entry & dirty_bit) != 0;
   }
 
-  // this page is mmaped, but not touched yet
+  // this page is mmaped, but may not touched yet
   [[nodiscard]] auto is_present() const -> bool {
-    return (m_entry & dirty_bit) != 0;
+    return (m_entry & present_bit) != 0;
   }
 
-  // this page is not mmaped
-  [[nodiscard]] auto is_mapped() const -> bool { return m_entry != 0; }
+  // this page is swapped
+  [[nodiscard]] auto is_swapped() const -> bool {
+    return (m_entry & swap_bit) != 0;
+  }
+
+  // this page is touched, thus present in memory or swapped
+  [[nodiscard]] auto is_touched() const -> bool {
+    return is_present() or is_swapped();
+  }
 
   explicit operator entry_t() const { return m_entry; }
 };
