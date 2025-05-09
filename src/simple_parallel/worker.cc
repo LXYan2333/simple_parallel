@@ -92,17 +92,15 @@ void recv_stack(const bmpi::communicator &comm, int root_rank) {
 }
 
 void recv_dirty_page(const bmpi::communicator &comm, int root_rank) {
-  while (true) {
-    void *recv = nullptr;
-    MPI_Bcast(static_cast<void *>(&recv), sizeof(recv), MPI_BYTE, root_rank,
-              comm);
-    if (recv == nullptr) {
-      break;
-    }
-    size_t block_size{};
-    bmpi::broadcast(comm, block_size, root_rank);
-    bigmpi::Bcast(recv, block_size, MPI_BYTE, root_rank, comm);
-  }
+  std::vector<mem_area> mem_areas;
+  size_t mem_areas_count{};
+  bmpi::broadcast(comm, mem_areas_count, root_rank);
+  mem_areas.resize(mem_areas_count);
+  bigmpi::Bcast(mem_areas.data(),
+                mem_areas_count * sizeof(decltype(mem_areas)::value_type),
+                MPI_BYTE, root_rank, comm);
+
+  bigmpi::sync_areas(mem_areas, root_rank, comm);
 }
 
 void recv_zero_page(const bmpi::communicator &comm, int root_rank) {

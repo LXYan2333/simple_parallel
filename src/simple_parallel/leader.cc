@@ -315,20 +315,26 @@ auto memory_operations() -> auto & {
 void send_dirty_page(my_interval_set<pgnum> &dirty_pages,
                      const bmpi::communicator &comm, int root_rank) {
 
-  for (const bi::right_open_interval<pgnum> &page_range : dirty_pages) {
-    const size_t size = page_range.upper() - page_range.lower();
-    mem_area mem_area =
-        pgrng2memarea({.begin = page_range.lower(), .count = size});
-    char *begin = mem_area.data();
-    size_t block_size = mem_area.size_bytes();
-    MPI_Bcast(static_cast<void *>(&begin), sizeof(begin), MPI_BYTE, root_rank,
-              comm);
-    bmpi::broadcast(comm, block_size, root_rank);
-    bigmpi::Bcast(begin, block_size, MPI_BYTE, root_rank, comm);
-  }
+  static_assert(std::is_trivially_copyable_v<mem_area>);
+  std::vector<mem_area> mem_areas;
+  auto pginterval2memarea =
+      +[](const bi::right_open_interval<pgnum> &page_range) {
+        const size_t size = page_range.upper() - page_range.lower();
+        return pgrng2memarea({.begin = page_range.lower(), .count = size});
+      };
 
-  void *end = nullptr;
-  MPI_Bcast(static_cast<void *>(&end), sizeof(end), MPI_BYTE, root_rank, comm);
+  std::ranges::transform(dirty_pages, std::back_inserter(mem_areas),
+                         pginterval2memarea);
+
+  BOOST_ASSERT(dirty_pages.size() == mem_areas.size());
+
+  size_t mem_areas_count = mem_areas.size();
+  bmpi::broadcast(comm, mem_areas_count, root_rank);
+  bigmpi::Bcast(mem_areas.data(),
+                mem_areas_count * sizeof(decltype(mem_areas)::value_type),
+                MPI_BYTE, root_rank, comm);
+
+  bigmpi::sync_areas(mem_areas, root_rank, comm);
 }
 
 void send_zeroed_page(my_interval_set<pgnum> &zero_pages,
