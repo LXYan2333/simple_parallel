@@ -396,8 +396,6 @@ public:
 
   // static_assert(std::input_iterator<iterator>);
 
-  class sentinel {};
-
   [[nodiscard]] auto begin() -> iterator {
     return {m_range, m_comm, m_buffer_size};
   }
