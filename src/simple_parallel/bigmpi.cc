@@ -1,9 +1,11 @@
 #include <algorithm>
 #include <boost/assert.hpp>
+#include <boost/container/static_vector.hpp>
 #include <cstddef>
 #include <gsl/util>
 #include <limits>
 #include <mpi.h>
+#include <span>
 
 #include <bigmpi.h>
 

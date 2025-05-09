@@ -326,8 +326,6 @@ void send_dirty_page(my_interval_set<pgnum> &dirty_pages,
   std::ranges::transform(dirty_pages, std::back_inserter(mem_areas),
                          pginterval2memarea);
 
-  BOOST_ASSERT(dirty_pages.size() == mem_areas.size());
-
   size_t mem_areas_count = mem_areas.size();
   bmpi::broadcast(comm, mem_areas_count, root_rank);
   bigmpi::Bcast(mem_areas.data(),
