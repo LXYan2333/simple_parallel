@@ -103,11 +103,9 @@ auto operator!=(const mi_internal_os_alloc<T> & /*lhs*/,
   return false;
 }
 
-// a boost interval set, using glibc to alloc memory
 template <typename T>
 using my_interval_set =
-    bi::interval_set<T, std::less, bi::right_open_interval<T>,
-                     mi_internal_os_alloc>;
+    bi::interval_set<T, std::less, bi::right_open_interval<T>>;
 
 // This should be a global variable, but since it may be touched before global
 // variable initialization (and cause multi initialization), it is placed into a
@@ -299,14 +297,15 @@ namespace {
 char sync_mem_stack[1024 * 1024 * 8];
 // NOLINTBEGIN(cert-err58-cpp)
 
-// This should be a global variable, but since it may be touched before global
-// variable initialization (and cause multi initialization), it is placed into a
-// function
+using mem_ops_container_t =
+    boost::container::small_vector<mem_ops_t, 256,
+                                   mi_internal_os_alloc<mem_ops_t>>;
+
+// This should be a global variable, but since it may be touched before
+// global variable initialization (and cause multi initialization), it is
+// placed into a function
 auto memory_operations() -> auto & {
-  static boost::synchronized_value<
-      boost::container::small_vector<mem_ops_t, 256,
-                                     mi_internal_os_alloc<mem_ops_t>>,
-      std::recursive_mutex>
+  static boost::synchronized_value<mem_ops_container_t, std::recursive_mutex>
       memory_operations;
   return memory_operations;
 };
@@ -387,14 +386,13 @@ void send_stack(const bmpi::communicator &comm, int root_rank) {
 }
 
 void send_mem_ops(const bmpi::communicator &comm, int root_rank) {
-  // TODO: potential deadlock if any mem op is performed during the broadcast
-  auto &&mem_ops = memory_operations().synchronize();
-  size_t mem_ops_size = mem_ops->size();
+  mem_ops_container_t mem_ops =
+      std::move(static_cast<mem_ops_container_t &>(*memory_operations()));
+  size_t mem_ops_size = mem_ops.size();
   bmpi::broadcast(comm, mem_ops_size, root_rank);
-  MPI_Bcast(mem_ops->data(),
-            gsl::narrow_cast<int>(sizeof(mem_ops_t) * mem_ops->size()),
-            MPI_BYTE, root_rank, comm);
-  mem_ops->clear();
+  MPI_Bcast(mem_ops.data(),
+            gsl::narrow_cast<int>(sizeof(mem_ops_t) * mem_ops.size()), MPI_BYTE,
+            root_rank, comm);
 }
 
 struct enter_parallel_impl_params {

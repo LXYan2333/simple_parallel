@@ -357,13 +357,15 @@ auto fake_main(int argc, char **argv, char **env) -> int try {
       // NOLINTNEXTLINE(*-vararg,*-reinterpret-cast)
       makecontext(&fake_stack_context, reinterpret_cast<void (*)()>(main_wrap),
                   1, &params);
-      if (swapcontext(&fake_main_context, &fake_stack_context) == -1) {
-        std::stringstream ss;
-        // NOLINTNEXTLINE(concurrency-mt-unsafe)
-        ss << "Failed to swapcontext, reason: " << std::strerror(errno);
-        throw std::runtime_error(std::move(ss).str());
-      };
-      finished = true;
+      {
+        auto finish = gsl::finally([]() { finished = true; });
+        if (swapcontext(&fake_main_context, &fake_stack_context) == -1) {
+          std::stringstream ss;
+          // NOLINTNEXTLINE(concurrency-mt-unsafe)
+          ss << "Failed to swapcontext, reason: " << std::strerror(errno);
+          throw std::runtime_error(std::move(ss).str());
+        };
+      }
       if (params.exception) {
         std::rethrow_exception(params.exception);
       }
