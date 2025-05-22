@@ -30,6 +30,12 @@ module simple_parallel
          type(c_ptr),value::ctx
       end subroutine s_p_f_del_ctx
 
+      function s_p_get_comm_from_ctx(ctx) bind(c) result(comm)
+         use,intrinsic::iso_c_binding
+         type(c_ptr),value::ctx
+         integer(c_int)::comm
+      end function s_p_get_comm_from_ctx
+
       subroutine s_p_f_ctx_begin_parallel(ctx) bind(c)
          use,intrinsic::iso_c_binding
          type(c_ptr),value::ctx
@@ -110,13 +116,7 @@ contains
       class(par_ctx),intent(in)::self
       type(MPI_Comm)::comm
 
-      if (self%exited_parallel) then
-         comm = MPI_COMM_NULL
-      else if (self%is_in_parallel) then
-         comm = MPI_COMM_WORLD
-      else
-         comm = MPI_COMM_SELF
-      end if
+      comm%MPI_VAL = s_p_get_comm_from_ctx(self%ctx)
    end function get_comm
 
 end module simple_parallel
