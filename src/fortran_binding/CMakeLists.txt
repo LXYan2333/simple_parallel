@@ -1,6 +1,8 @@
 add_library(s_p_fortran_binding
     fortran_binding.cc
+    fortran_dynamic_schedule_binding.cc
     fortran_binding.f90
+    fortran_dynamic_schedule_binding.f90
 )
 
 add_library(simple_parallel::s_p_fortran_binding ALIAS s_p_fortran_binding)
@@ -37,6 +39,7 @@ set_target_properties(s_p_fortran_binding
 
 install(FILES
     ${CMAKE_CURRENT_BINARY_DIR}/mods/simple_parallel/simple_parallel.mod
+    ${CMAKE_CURRENT_BINARY_DIR}/mods/simple_parallel/simple_parallel_dynamic_schedule.mod
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/simple_parallel/fortran
 )
 

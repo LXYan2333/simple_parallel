@@ -86,7 +86,7 @@ auto AllReduce(void *recvbuf, size_t count, MPI_Datatype datatype, MPI_Op op,
 void sync_areas(std::span<mem_area> mem_areas, int root_rank, MPI_Comm comm) {
   boost::container::static_vector<MPI_Request, 32> buffer{};
   // wait request with a buffer of 32 requests
-  auto wait_rquest = [&buffer](MPI_Request request) {
+  auto async_wait_rquest = [&buffer](MPI_Request request) {
     if (buffer.size() == buffer.static_capacity) {
       int index{};
       MPI_Waitany(gsl::narrow_cast<int>(buffer.size()), buffer.data(), &index,
@@ -111,7 +111,7 @@ void sync_areas(std::span<mem_area> mem_areas, int root_rank, MPI_Comm comm) {
           gsl::narrow_cast<int>(std::min(int_max, count - sent));
       MPI_Ibcast(this_iter_buffer, this_iter_count, MPI_BYTE, root_rank, comm,
                  &request);
-      wait_rquest(request);
+      async_wait_rquest(request);
     }
   }
 

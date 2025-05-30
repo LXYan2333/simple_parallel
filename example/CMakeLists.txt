@@ -25,5 +25,6 @@ if(SIMPLE_PARALLEL_Fortran_BINDING)
     target_link_libraries(fortran_example
         PRIVATE
         simple_parallel::s_p_fortran_binding
+        OpenMP::OpenMP_Fortran
     )
 endif()
