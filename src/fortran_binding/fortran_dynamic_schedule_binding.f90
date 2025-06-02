@@ -62,6 +62,12 @@ module simple_parallel_dynamic_schedule
          type(c_ptr)::res
       end function s_p_f_get_buffer
 
+      function s_p_f_done(detail) bind(c) result(res)
+         use,intrinsic::iso_c_binding
+         type(c_ptr),intent(in),value::detail
+         logical(c_bool)::res
+      end function s_p_f_done
+
       subroutine s_p_f_parallel_scheduler_advance(detail) bind(c)
          use,intrinsic::iso_c_binding
          type(c_ptr),intent(in),value::detail
@@ -76,7 +82,9 @@ contains
 
 
       res = self%buffer_loc
-      if (res%has_value) then
+      if (s_p_f_done(self%detail)) then
+         res%has_value = .false.
+      else
          call s_p_f_parallel_scheduler_advance(self%detail)
       end if
    end function parallel_scheduler_next

@@ -92,6 +92,11 @@ extern "C" auto s_p_f_get_buffer(void *detail) -> const optional_buffer * {
   return &(*(static_cast<s_p_f_dynamic_schedule *>(detail)->m_iter));
 };
 
+extern "C" auto s_p_f_done(void *detail) -> bool {
+  auto *scheduler = static_cast<s_p_f_dynamic_schedule *>(detail);
+  return scheduler->m_iter == scheduler->m_end;
+}
+
 extern "C" void s_p_f_parallel_scheduler_advance(void *detail) {
   static_cast<s_p_f_dynamic_schedule *>(detail)->m_iter++;
 }
