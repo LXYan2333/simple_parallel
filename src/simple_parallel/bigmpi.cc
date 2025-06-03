@@ -84,8 +84,8 @@ auto AllReduce(void *recvbuf, size_t count, MPI_Datatype datatype, MPI_Op op,
 }
 
 void sync_areas(std::span<mem_area> mem_areas, int root_rank, MPI_Comm comm) {
-  boost::container::static_vector<MPI_Request, 32> buffer{};
-  // wait request with a buffer of 32 requests
+  boost::container::static_vector<MPI_Request, 256> buffer{};
+  // wait request with a buffer of 256 requests
   auto async_wait_rquest = [&buffer](MPI_Request request) {
     if (buffer.size() == buffer.static_capacity) {
       int index{};
