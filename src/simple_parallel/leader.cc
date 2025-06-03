@@ -440,8 +440,9 @@ void reduce_area::init_inner_pages(std::optional<pte_range> &inner_pages) {
                           m_count * gsl::narrow_cast<size_t>(m_sizeof_type)});
 };
 
-auto reduce_area::all_reduce(const bmpi::communicator &comm) const -> int {
-  return bigmpi::AllReduce(m_begin, m_count, m_type, m_op, comm);
+auto reduce_area::reduce(const bmpi::communicator &comm,
+                         const int root_rank) const -> int {
+  return bigmpi::Reduce(m_begin, m_count, m_type, m_op, comm, root_rank);
 }
 
 void reduce_area::init_reduce_area_on_worker() const {
@@ -630,7 +631,7 @@ void par_ctx_base::do_exit_parallel() {
   in_parallel = false;
   if (m_comm->size() > 1) {
     for (const reduce_area &reduce : m_reduces) {
-      if (reduce.all_reduce(*m_comm) != MPI_SUCCESS) {
+      if (reduce.reduce(*m_comm, m_root_rank) != MPI_SUCCESS) {
         throw std::runtime_error("Failed to reduce");
       }
     }

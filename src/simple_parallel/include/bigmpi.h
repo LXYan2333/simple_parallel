@@ -11,5 +11,7 @@ auto Bcast(void *buffer, size_t count, MPI_Datatype datatype, const int root,
            MPI_Comm comm) -> int;
 auto AllReduce(void *recvbuf, size_t count, MPI_Datatype datatype, MPI_Op op,
                MPI_Comm comm) -> int;
+auto Reduce(void *buffer, size_t count, MPI_Datatype datatype, MPI_Op op,
+            MPI_Comm comm, const int root_rank) -> int;
 void sync_areas(std::span<mem_area> mem_areas, int root_rank, MPI_Comm comm);
 } // namespace simple_parallel::bigmpi

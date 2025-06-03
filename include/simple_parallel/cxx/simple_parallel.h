@@ -26,7 +26,8 @@ private:
   int m_sizeof_type{};
   std::optional<pte_range> m_inner_pages;
 
-  [[nodiscard]] auto all_reduce(const bmpi::communicator &comm) const -> int;
+  [[nodiscard]] auto reduce(const bmpi::communicator &comm,
+                            const int root_rank) const -> int;
   void init_reduce_area_on_worker() const;
   void init_inner_pages(std::optional<pte_range> &inner_pages);
 

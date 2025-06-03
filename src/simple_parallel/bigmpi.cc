@@ -83,6 +83,37 @@ auto AllReduce(void *recvbuf, size_t count, MPI_Datatype datatype, MPI_Op op,
   return MPI_SUCCESS;
 }
 
+auto Reduce(void *buffer, size_t count, MPI_Datatype datatype, MPI_Op op,
+            MPI_Comm comm, const int root_rank) -> int {
+  const size_t elem_size = get_mpi_type_size(datatype);
+  BOOST_ASSERT(elem_size > 0);
+
+  constexpr size_t int_max = std::numeric_limits<int>::max();
+
+  int my_rank{};
+  MPI_Comm_rank(comm, &my_rank);
+
+  // NOLINTBEGIN(*pointer-arithmetic)
+  for (size_t sent = 0; sent < count; sent += int_max) {
+    char *this_iter_buffer = static_cast<char *>(buffer) + (sent * elem_size);
+    int this_iter_count =
+        gsl::narrow_cast<int>(std::min(int_max, count - sent));
+    int ret{};
+    if (my_rank == root_rank) {
+      ret = MPI_Reduce(MPI_IN_PLACE, this_iter_buffer, this_iter_count,
+                       datatype, op, root_rank, comm);
+    } else {
+      ret = MPI_Reduce(this_iter_buffer, {}, this_iter_count, datatype, op,
+                       root_rank, comm);
+    }
+    if (ret != MPI_SUCCESS) {
+      return ret;
+    }
+  }
+  // NOLINTEND(*pointer-arithmetic)
+  return MPI_SUCCESS;
+}
+
 void sync_areas(std::span<mem_area> mem_areas, int root_rank, MPI_Comm comm) {
   boost::container::static_vector<MPI_Request, 256> buffer{};
   // wait request with a buffer of 256 requests
