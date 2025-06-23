@@ -1,0 +1,3 @@
+#pragma once
+
+#cmakedefine01 SIMPLE_PARALLEL_Fortran_BINDING

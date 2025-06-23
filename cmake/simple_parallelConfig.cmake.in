@@ -5,6 +5,10 @@ if(CMAKE_VERSION VERSION_LESS "3.25.0")
    message(FATAL_ERROR "CMake >= 3.25.0 required")
 endif()
 
+if(CMAKE_Fortran_COMPILER_LOADED AND NOT "@SIMPLE_PARALLEL_Fortran_BINDING@")
+   message(FATAL_ERROR "simple_parallel is not compiled with fortran support, thus should not be used in a Fortran project. Please recompile simple_parallel with CMake option SIMPLE_PARALLEL_Fortran_BINDING set to ON")
+endif()
+
 include(CMakeFindDependencyMacro)
 
 find_dependency(Boost REQUIRED COMPONENTS mpi headers thread container)

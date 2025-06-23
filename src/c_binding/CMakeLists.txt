@@ -19,10 +19,10 @@ target_link_libraries(s_p_c_binding
     MPI::MPI_C
     Boost::headers # for boost preprocessor
     $<TARGET_NAME_IF_EXISTS:Boost::preprocessor>
+    s_p_init
     
     PRIVATE
     Microsoft.GSL::GSL
-    s_p_init
     s_p_options
     s_p_warings
 )

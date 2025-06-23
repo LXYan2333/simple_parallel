@@ -1,50 +1,63 @@
+module test_module
+   integer,dimension(:),allocatable::global_array
+end module
+
 subroutine main_impl
    use,intrinsic::iso_c_binding
    use::simple_parallel
    use::mpi_f08
+   use::simple_parallel_dynamic_schedule
+   use::omp_lib
+   use::test_module
+
    implicit none
 
-   integer(c_int),dimension(:),allocatable::array1
-   integer::i
-   type(par_ctx)::ctx
-   type(MPI_Comm)::comm
-   integer::rank,world_size
+   integer(kind=8) count
 
-   allocate(array1(10))
-   array1 = [(i,i=1,10)]
+   count = 0
 
-   call ctx%init()
-   call ctx%add_reduce(array1,MPI_SUM)
-   call ctx%enter_parallel()
-   comm = ctx%get_comm()
-   call MPI_Comm_rank(comm,rank)
-   call MPI_Comm_size(comm,world_size)
-   print*, 'Hello from rank ', rank, ' of ', world_size
-   call printmatrix(array1)
-   do i = 1,size(array1)
-      array1(i) = array1(i) + 1
-   end do
-   print*, 'exited parallel'
-   call ctx%exit_parallel()
-   call printmatrix(array1)
+#define s_p_enter_parallel .true.
+#define s_p_ctx_name ctx
+#define s_p_reduce_1 count,MPI_SUM
+#include <simple_parallel/fortran/parallel_begin.h>
 
-contains
-   subroutine printmatrix(matrix)
-      use,intrinsic::iso_c_binding
-      implicit none
-      integer(c_int),dimension(:),intent(in)::matrix
-      integer::i
+   block
+      integer::rank,size
+      integer(kind=8) ii
 
-      do i = 1,size(matrix)
-         print*, matrix(i)
-      end do
-   end subroutine printmatrix
+      call MPI_Comm_rank(ctx%get_comm(),rank)
+      call MPI_Comm_rank(ctx%get_comm(),size)
+
+      print *,'rank:',rank,'thread: ',omp_get_thread_num()
+
+
+#define s_p_comm ctx%get_comm()
+#define s_p_begin 1_c_int64_t
+#define s_p_end 100000_c_int64_t
+#define s_p_grainsize 4_c_int64_t
+#define s_p_do_index ii
+#include <simple_parallel/fortran/gss_dynamic_schedule_begin.h>
+
+      count = count + ii
+
+#include <simple_parallel/fortran/gss_dynamic_schedule_end.h>
+
+   end block
+
+
+   print *,'private count: ', count
+   
+#include <simple_parallel/fortran/parallel_end.h>
+
+   print *,'count: ', count
+
+
 end subroutine main_impl
 
 program simple_parallel_example
 
-   ! some compiler will place variable declared in program block in static area, 
-   ! so it is highly recommend to place everything into a separate subroutine 
+   ! some compiler will place variable declared in program block in static area,
+   ! so it is highly recommend to place everything into a separate subroutine
    ! and call that subroutine in program block.
    call main_impl()
 

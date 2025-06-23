@@ -134,7 +134,7 @@ contains
       type(optional_buffer)::res
       integer(c_int64_t) remaining,next_count
 
-      remaining = self%end - self%current
+      remaining = self%end - self%current + 1
       if (remaining == 0) then
          res%has_value = .false.
          return
@@ -146,7 +146,7 @@ contains
 
       res%has_value = .true.
       res%buffer(1) = self%current
-      res%buffer(2) = self%current + next_count
+      res%buffer(2) = self%current + next_count - 1
 
       self%current = self%current + next_count
    end function gss_next

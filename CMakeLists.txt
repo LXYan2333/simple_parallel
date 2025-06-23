@@ -72,6 +72,9 @@ if(SIMPLE_PARALLEL_Fortran_BINDING)
     if(NOT MPI_Fortran_HAVE_F08_MODULE)
         message(FATAL_ERROR "MPI Fortran does not support F08 module, please use a recent version of OpenMPI, and make sure its mpi_f08.mod is compatible with your compiler")
     endif()
+    find_package(re2 REQUIRED)
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(libelf REQUIRED IMPORTED_TARGET libelf)
 endif()
 find_package(Boost REQUIRED COMPONENTS mpi headers thread container)
 find_package(Microsoft.GSL REQUIRED)
@@ -95,6 +98,8 @@ if(GIT_FOUND AND EXISTS "${PROJECT_SOURCE_DIR}/.git")
         endif()
     endif()
 endif()
+
+configure_file("cmake/simple_parallel_config.h.in" "${PROJECT_BINARY_DIR}/configured_files/include/internal_use_only/simple_parallel_config.h.in" ESCAPE_QUOTES)
 
 add_subdirectory(src)
 

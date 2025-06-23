@@ -133,4 +133,6 @@ template <typename... args>
 explicit par_ctx(bool enter_parallel, args... reduces)
     -> par_ctx<sizeof...(args)>;
 
+S_P_LIB_PUBLIC auto debug() -> bool;
+
 } // namespace simple_parallel

@@ -30,6 +30,7 @@
 #include <span>
 #include <sstream>
 #include <stdexcept>
+#include <sync_fortran_global_vars.h>
 #include <sys/mman.h>
 #include <type_traits>
 #include <ucontext.h>
@@ -37,6 +38,8 @@
 #include <worker.h>
 
 #include <leader.h>
+
+#include <internal_use_only/simple_parallel_config.h.in>
 
 #ifndef hwy_please_include_me_only_once
 #define hwy_please_include_me_only_once
@@ -561,8 +564,9 @@ void par_ctx_base::set_reduces(std::span<const reduce_area> reduces) {
 };
 
 namespace {
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 std::atomic<bool> in_parallel = false;
-}
+} // namespace
 
 void par_ctx_base::do_enter_parallel(bool enter_parallel) {
   if (!enter_parallel or m_comm->size() == 1) {
@@ -622,6 +626,10 @@ void par_ctx_base::do_enter_parallel(bool enter_parallel) {
       reduce.init_reduce_area_on_worker();
     }
   }
+
+#if SIMPLE_PARALLEL_Fortran_BINDING
+  sync_fortran_global_variables(*m_comm, m_root_rank);
+#endif
 }
 
 void par_ctx_base::do_exit_parallel() {

@@ -2,3 +2,4 @@ build/
 .cache/
 install
 .vscode/
+.directory
