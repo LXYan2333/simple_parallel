@@ -19,6 +19,7 @@ add_library(s_p_init
     bigmpi.cc
     pagemap.cc
     $<$<BOOL:SIMPLE_PARALLEL_OVERRIDE_MAIN>:override_main.cc>
+    $<$<BOOL:SIMPLE_PARALLEL_Fortran_BINDING>:sync_fortran_global_vars.cc>
 )
 add_library(simple_parallel::s_p_init ALIAS s_p_init)
 
@@ -51,6 +52,7 @@ target_sources(s_p_init
     ${PROJECT_SOURCE_DIR}/include/simple_parallel/cxx/simple_parallel.h
     ${PROJECT_SOURCE_DIR}/include/simple_parallel/cxx/types_fwd.h
     ${PROJECT_SOURCE_DIR}/include/simple_parallel/cxx/dynamic_schedule.h
+    ${PROJECT_SOURCE_DIR}/include/simple_parallel/cxx/lib_visibility.h
 )
 
 target_include_directories(s_p_init
@@ -58,6 +60,7 @@ target_include_directories(s_p_init
     PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../mimalloc_for_simple_parallel/include/
     ${CMAKE_CURRENT_SOURCE_DIR}
+    ${PROJECT_BINARY_DIR}/configured_files/include
 )
 
 target_link_libraries(s_p_init
@@ -75,6 +78,8 @@ target_link_libraries(s_p_init
     s_p_warings
     Microsoft.GSL::GSL
     hwy
+    re2::re2
+    PkgConfig::libelf
 )
 
 include(CheckCompilerFlag)
@@ -114,16 +119,14 @@ endif()
 set_target_properties(s_p_init
     PROPERTIES
     CXX_VISIBILITY_PRESET hidden
-    VISIBILITY_INLINES_HIDDEN ON
     INTERFACE_LINK_LIBRARIES_DIRECT $<$<STREQUAL:$<TARGET_PROPERTY:TYPE>,EXECUTABLE>:simple_parallel::mimalloc-obj>
 )
 
-if(SIMPLE_PARALLEL_OVERRIDE_MAIN)
-    target_link_options(s_p_init
-        INTERFACE
-        "LINKER:--wrap=__libc_start_main"
-    )
-endif()
+target_link_options(s_p_init
+    PUBLIC
+    $<$<BOOL:SIMPLE_PARALLEL_OVERRIDE_MAIN>:LINKER:--wrap=__libc_start_main>
+    $<$<BOOL:SIMPLE_PARALLEL_Fortran_BINDING>:LINKER:--export-dynamic>
+)
 
 configure_file(
     s_p_launcher.sh.in

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <simple_parallel/cxx/lib_visibility.h>
+
 namespace simple_parallel {
 
 using main_fn_t = int (*)(int, char **, char **);
@@ -22,8 +24,7 @@ extern "C" auto __real___libc_start_main(simple_parallel::main_fn_t main,
                                          void *stack_end) -> int;
 
 // NOLINTNEXTLINE(*-cpp,cert-dcl37-c,*reserved-identifier)
-extern "C" auto __wrap___libc_start_main(simple_parallel::main_fn_t main,
-                                         int argc, char **argv,
-                                         simple_parallel::main_fn_t init,
-                                         void (*fini)(), void (*rtld_fini)(),
-                                         void *stack_end) -> int;
+extern "C" S_P_LIB_PUBLIC auto
+__wrap___libc_start_main(simple_parallel::main_fn_t main, int argc, char **argv,
+                         simple_parallel::main_fn_t init, void (*fini)(),
+                         void (*rtld_fini)(), void *stack_end) -> int;

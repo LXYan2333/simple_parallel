@@ -9,6 +9,7 @@
 #include <mutex>
 #include <optional>
 #include <ranges>
+#include <simple_parallel/cxx/lib_visibility.h>
 #include <simple_parallel/cxx/types_fwd.h>
 #include <span>
 #include <type_traits>
@@ -29,7 +30,7 @@ private:
   [[nodiscard]] auto reduce(const bmpi::communicator &comm,
                             const int root_rank) const -> int;
   void init_reduce_area_on_worker() const;
-  void init_inner_pages(std::optional<pte_range> &inner_pages);
+  S_P_LIB_PUBLIC void init_inner_pages(std::optional<pte_range> &inner_pages);
 
   friend par_ctx_base;
   // use this to access private members in anonymous namespace, to hide
@@ -79,7 +80,6 @@ private:
   ucontext_t m_parallel_ctx;
   ucontext_t m_sync_mem_ctx;
   bmpi::communicator *m_comm;
-  static constexpr int m_root_rank = 0;
 
   std::span<const reduce_area> m_reduces;
 
@@ -88,20 +88,23 @@ private:
   void verify_reduces_no_overlap() const;
 
 protected:
-  explicit par_ctx_base(std::span<const reduce_area> reduces = {});
-  void set_reduces(std::span<const reduce_area> reduces);
-  void do_enter_parallel(bool enter_parallel);
-  void do_exit_parallel();
+  S_P_LIB_PUBLIC explicit par_ctx_base(
+      std::span<const reduce_area> reduces = {});
+  S_P_LIB_PUBLIC void set_reduces(std::span<const reduce_area> reduces);
+  S_P_LIB_PUBLIC void do_enter_parallel(bool enter_parallel);
+  S_P_LIB_PUBLIC void do_exit_parallel();
   ~par_ctx_base() = default;
 
 public:
+  static constexpr int m_root_rank = 0;
   // non-copyable and non-moveable
   par_ctx_base(const par_ctx_base &) = delete;
   par_ctx_base(par_ctx_base &&) = delete;
   auto operator=(const par_ctx_base &) -> par_ctx_base & = delete;
   auto operator=(par_ctx_base &&) -> par_ctx_base & = delete;
 
-  [[nodiscard]] auto get_comm() const -> const bmpi::communicator &;
+  [[nodiscard]] S_P_LIB_PUBLIC auto get_comm() const
+      -> const bmpi::communicator &;
 };
 
 template <size_t reduces_size> class par_ctx : public par_ctx_base {

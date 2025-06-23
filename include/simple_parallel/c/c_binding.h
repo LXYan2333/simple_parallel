@@ -2,6 +2,7 @@
 
 #include <boost/preprocessor.hpp>
 #include <mpi.h>
+#include <simple_parallel/cxx/lib_visibility.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -24,12 +25,11 @@ typedef struct s_p_par_ctx_s {
   struct par_ctx_c_binding *detail;
 } s_p_par_ctx;
 
-__attribute__((visibility("default"))) s_p_par_ctx
-s_p_construct_par_ctx(bool enter_parallel, s_p_reduce_area *reduce_areas,
-                      size_t reduce_areas_num);
+S_P_LIB_PUBLIC s_p_par_ctx s_p_construct_par_ctx(bool enter_parallel,
+                                                 s_p_reduce_area *reduce_areas,
+                                                 size_t reduce_areas_num);
 
-__attribute__((visibility("default"))) void
-s_p_destruct_par_ctx(s_p_par_ctx *ctx);
+S_P_LIB_PUBLIC void s_p_destruct_par_ctx(s_p_par_ctx *ctx);
 
 #ifdef __cplusplus
 }

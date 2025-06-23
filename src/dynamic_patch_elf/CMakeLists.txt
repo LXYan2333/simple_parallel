@@ -11,6 +11,10 @@ target_link_libraries(s_p_dynamic_patch_elf
     mimalloc-obj
 )
 
+target_include_directories(s_p_dynamic_patch_elf
+    PRIVATE
+    ${PROJECT_SOURCE_DIR}/include)
+
 target_sources(s_p_dynamic_patch_elf
     PRIVATE
     FILE_SET HEADERS
