@@ -27,6 +27,9 @@ target_sources(s_p_fortran_binding
     TYPE HEADERS
     BASE_DIRS ${PROJECT_SOURCE_DIR}/include
     FILES
+    ${PROJECT_SOURCE_DIR}/include/simple_parallel/fortran/fortran_global_matrix_c_cxx_helper.h
+    ${PROJECT_SOURCE_DIR}/include/simple_parallel/fortran/global_matrix_mpi_reduce.h
+    ${PROJECT_SOURCE_DIR}/include/simple_parallel/fortran/global_matrix_set_zero.h
     ${PROJECT_SOURCE_DIR}/include/simple_parallel/fortran/gss_dynamic_schedule_begin.h
     ${PROJECT_SOURCE_DIR}/include/simple_parallel/fortran/gss_dynamic_schedule_end.h
     ${PROJECT_SOURCE_DIR}/include/simple_parallel/fortran/parallel_begin.h

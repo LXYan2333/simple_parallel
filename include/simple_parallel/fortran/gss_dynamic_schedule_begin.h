@@ -32,6 +32,7 @@ block
 !$omp single
    s_p_all_thread_count = omp_get_num_threads();
    call MPI_Allreduce(MPI_IN_PLACE,s_p_all_thread_count,1,MPI_INT,MPI_SUM,s_p_comm)
+   s_p_all_thread_count = s_p_all_thread_count * 40
    call s_p_gss_gen%gss_init(s_p_begin,s_p_end,s_p_all_thread_count,s_p_grainsize)
    call s_p_parallel_scheduler%init(s_p_gss_gen,s_p_comm,omp_get_num_threads())
    s_p_parallel_scheduler_ptr => s_p_parallel_scheduler
@@ -44,3 +45,9 @@ block
         exit
       end if
       do s_p_do_index = s_p_buffer%buffer(1),s_p_buffer%buffer(2)
+
+#undef s_p_comm
+#undef s_p_begin
+#undef s_p_end
+#undef s_p_grainsize
+#undef s_p_do_index

@@ -20,7 +20,9 @@ endif()
 
 if(SIMPLE_PARALLEL_Fortran_BINDING)
     add_executable(fortran_example
-        fortran_example.f90
+        # .F90 suffix is required to apply the preprocessor.
+        # -cpp can be used to apply preprocessor for .f90 suffix
+        fortran_example.F90
     )
     target_link_libraries(fortran_example
         PRIVATE
