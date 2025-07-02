@@ -3,10 +3,8 @@
 #include <array>
 #include <boost/mpi.hpp>
 #include <cstddef>
-#include <exception>
 #include <memory>
 #include <mpi.h>
-#include <mutex>
 #include <optional>
 #include <ranges>
 #include <simple_parallel/cxx/lib_visibility.h>
@@ -137,5 +135,8 @@ explicit par_ctx(bool enter_parallel, args... reduces)
     -> par_ctx<sizeof...(args)>;
 
 S_P_LIB_PUBLIC auto debug() -> bool;
+
+S_P_LIB_PUBLIC auto symbol_name_2_addr(std::string_view name)
+    -> std::optional<char *>;
 
 } // namespace simple_parallel

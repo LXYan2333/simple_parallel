@@ -9,6 +9,7 @@
 #include <gsl/util>
 #include <libelf.h>
 #include <link.h>
+#include <optional>
 #include <ranges>
 #include <re2/re2.h>
 #include <simple_parallel/cxx/simple_parallel.h>
@@ -21,16 +22,30 @@
 
 #include <sync_fortran_global_vars.h>
 
-namespace sp = simple_parallel;
-namespace bmpi = boost::mpi;
-
 using namespace std::literals;
+
+namespace simple_parallel {
+auto symbol_name_2_addr(std::string_view name) -> std::optional<char *> {
+#ifndef _GNU_SOURCE
+#error The _GNU_SOURCE feature test macro must be defined in order to obtain the definitions of RTLD_DEFAULT and RTLD_NEXT from <dlfcn.h>.
+#endif
+  //  NOLINTNEXTLINE(*pointer-arithmetic,*suspicious-stringview-data-usage)
+  char *addr = static_cast<char *>(dlsym(RTLD_DEFAULT, name.data()));
+  if (addr == nullptr) {
+    // NOLINTNEXTLINE(*-mt-unsafe)
+    char *dlerror_ret = dlerror();
+    if (dlerror_ret != nullptr) {
+      return std::nullopt;
+    }
+  }
+  return addr;
+}
 
 namespace {
 
 struct global_variable_info {
   std::string_view name;
-  sp::mem_area area;
+  mem_area area;
 };
 
 // copied from https://stackoverflow.com/a/57099317/18245120
@@ -241,22 +256,6 @@ auto get_desired_section_num() -> std::vector<ElfW(Section)> {
   return ret;
 }
 
-auto symbol_name_2_addr(std::string_view name) -> char * {
-#ifndef _GNU_SOURCE
-#error The _GNU_SOURCE feature test macro must be defined in order to obtain the definitions of RTLD_DEFAULT and RTLD_NEXT from <dlfcn.h>.
-#endif
-  //  NOLINTNEXTLINE(*pointer-arithmetic,*suspicious-stringview-data-usage)
-  char *addr = static_cast<char *>(dlsym(RTLD_DEFAULT, name.data()));
-  if (addr == nullptr) {
-    // NOLINTNEXTLINE(*-mt-unsafe)
-    char *dlerror_ret = dlerror();
-    if (dlerror_ret != nullptr) {
-      throw std::runtime_error(dlerror_ret);
-    }
-  }
-  return addr;
-}
-
 void get_symbol_from_symtab(
     std::span<const ElfW(Sym)> symtab, const char *strtab,
     std::vector<global_variable_info> &global_varaibles_vec) {
@@ -288,12 +287,16 @@ void get_symbol_from_symtab(
     std::string_view sym_name = strtab + name_offset;
 
     if (is_fortran_global_variable(sym_name)) {
-      char *addr = symbol_name_2_addr(sym_name);
-      global_varaibles_vec.push_back({sym_name, {addr, sym.st_size}});
+      std::optional<char *> addr = symbol_name_2_addr(sym_name);
+      if (!addr.has_value()) {
+        // NOLINTNEXTLINE(*-mt-unsafe)
+        throw std::runtime_error(dlerror());
+      }
+      global_varaibles_vec.push_back({sym_name, {*addr, sym.st_size}});
 
-      if (sp::debug()) {
+      if (debug()) {
         std::cout << "Adding Fortran global variable " << sym_name
-                  << " at address: " << static_cast<void *>(addr)
+                  << " at address: " << static_cast<void *>(*addr)
                   << ", size: " << sym.st_size << " to syncing list\n";
       }
     }
@@ -405,8 +408,6 @@ void verify_fortran_global_variables_synced(
 #endif
 
 } // namespace
-
-namespace simple_parallel {
 
 // fortran programmers prefer using global variables in modules, thus must
 // be synced

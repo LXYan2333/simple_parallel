@@ -650,6 +650,12 @@ void par_ctx_base::do_exit_parallel() {
 }
 
 void register_heap(mi_heap_t *heap) {
+
+  if (debug()) {
+    std::cerr << "register heap: " << static_cast<void *>(heap)
+              << ", finished: " << finished << '\n';
+  }
+
   if (finished) {
     return;
   }
@@ -664,6 +670,12 @@ void register_heap(mi_heap_t *heap) {
 }
 
 void unregister_heap(mi_heap_t *heap) {
+
+  if (debug()) {
+    std::cerr << "unregister heap: " << static_cast<void *>(heap)
+              << ", finished: " << finished << '\n';
+  }
+
   if (finished) {
     return;
   }

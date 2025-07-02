@@ -52,6 +52,19 @@ module simple_parallel
          type(*),intent(in),dimension(..)::reduce_array
          integer(c_int),value::op
       end subroutine s_p_f_ctx_add_reduce_area
+
+      subroutine set_matrix_zero_impl(matrix,size) bind(c)
+         use,intrinsic::iso_c_binding
+         type(*),dimension(..)::matrix
+         integer(c_int64_t),value::size
+      end subroutine set_matrix_zero_impl
+
+      function get_matrix_mpi_datatype(matrix) result(res) bind(c)
+         use,intrinsic::iso_c_binding
+         type(*),dimension(..)::matrix
+         integer::res
+      end function get_matrix_mpi_datatype
+
    end interface
 
 contains
@@ -118,5 +131,54 @@ contains
 
       comm%MPI_VAL = s_p_get_comm_from_ctx(self%ctx)
    end function get_comm
+
+   ! we need to manipulate fortran global matrix from c/c++
+
+   subroutine set_matrix_zero(matrix)
+      type(*),dimension(..)::matrix
+
+      ! due to TS29113:
+      ! > This Technical Specification provides no mechanism for a Fortran procedure to
+      ! > determine the actual type of an assumed-type argument.
+      !
+      ! so we have to do this work in C++
+      call set_matrix_zero_impl(matrix,sizeof(matrix))
+
+   end subroutine set_matrix_zero
+
+   function get_set_matrix_zero_func() result(res) bind(c)
+      type(c_funptr)::res
+
+      res = c_funloc(set_matrix_zero)
+   end function get_set_matrix_zero_func
+
+   subroutine reduce_matrix(matrix,op_int,comm_int,root_rank)
+      type(*),dimension(..)::matrix
+      integer,value::op_int,comm_int,root_rank
+
+      integer::rank
+
+      type(MPI_Comm)::comm
+      type(MPI_Datatype)::datatype
+      type(MPI_Op)::op
+
+      comm%MPI_VAL = comm_int
+      datatype%MPI_VAL = get_matrix_mpi_datatype(matrix)
+      op%MPI_VAL = op_int
+      call MPI_Comm_Rank(comm,rank)
+
+      if (root_rank .eq. rank) then
+         call MPI_Reduce(MPI_IN_PLACE,matrix,size(matrix),datatype,op,root_rank,comm)
+      else
+         call MPI_Reduce(matrix,0,size(matrix),datatype,op,root_rank,comm)
+      endif
+
+   end subroutine reduce_matrix
+
+   function get_reduce_matrix_func() result(res) bind(c)
+      type(c_funptr)::res
+
+      res = c_funloc(reduce_matrix)
+   end function get_reduce_matrix_func
 
 end module simple_parallel
