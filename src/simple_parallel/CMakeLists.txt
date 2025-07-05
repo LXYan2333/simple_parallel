@@ -18,8 +18,8 @@ add_library(s_p_init
     worker.cc
     bigmpi.cc
     pagemap.cc
-    $<$<BOOL:SIMPLE_PARALLEL_OVERRIDE_MAIN>:override_main.cc>
-    $<$<BOOL:SIMPLE_PARALLEL_Fortran_BINDING>:sync_fortran_global_vars.cc>
+    $<$<BOOL:${SIMPLE_PARALLEL_OVERRIDE_MAIN}>:override_main.cc>
+    $<$<BOOL:${SIMPLE_PARALLEL_Fortran_BINDING}>:sync_fortran_global_vars.cc>
 )
 add_library(simple_parallel::s_p_init ALIAS s_p_init)
 
@@ -78,7 +78,7 @@ target_link_libraries(s_p_init
     s_p_warings
     Microsoft.GSL::GSL
     hwy
-    $<$<BOOL:SIMPLE_PARALLEL_Fortran_BINDING>:re2::re2 PkgConfig::libelf>
+    $<$<BOOL:${SIMPLE_PARALLEL_Fortran_BINDING}>:re2::re2 PkgConfig::libelf>
 )
 
 include(CheckCompilerFlag)
@@ -123,8 +123,8 @@ set_target_properties(s_p_init
 
 target_link_options(s_p_init
     PUBLIC
-    $<$<BOOL:SIMPLE_PARALLEL_OVERRIDE_MAIN>:LINKER:--wrap=__libc_start_main>
-    $<$<BOOL:SIMPLE_PARALLEL_Fortran_BINDING>:LINKER:--export-dynamic>
+    $<$<BOOL:${SIMPLE_PARALLEL_OVERRIDE_MAIN}>:LINKER:--wrap=__libc_start_main>
+    $<$<BOOL:${SIMPLE_PARALLEL_Fortran_BINDING}>:LINKER:--export-dynamic>
 )
 
 configure_file(
