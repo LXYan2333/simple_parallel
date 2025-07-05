@@ -78,8 +78,7 @@ target_link_libraries(s_p_init
     s_p_warings
     Microsoft.GSL::GSL
     hwy
-    re2::re2
-    PkgConfig::libelf
+    $<$<BOOL:SIMPLE_PARALLEL_Fortran_BINDING>:re2::re2 PkgConfig::libelf>
 )
 
 include(CheckCompilerFlag)
