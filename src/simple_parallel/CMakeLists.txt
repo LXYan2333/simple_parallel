@@ -36,6 +36,7 @@ target_sources(s_p_init
     include/worker.h
     include/pagemap.h
     include/internal_types.h
+    include/sync_fortran_global_vars.h
 
     PRIVATE
     FILE_SET private_header
@@ -78,7 +79,7 @@ target_link_libraries(s_p_init
     s_p_warings
     Microsoft.GSL::GSL
     hwy
-    $<$<BOOL:${SIMPLE_PARALLEL_Fortran_BINDING}>:re2::re2 PkgConfig::libelf>
+    $<$<BOOL:${SIMPLE_PARALLEL_Fortran_BINDING}>:re2::re2 PkgConfig::libelf ${CMAKE_DL_LIBS}>
 )
 
 include(CheckCompilerFlag)
