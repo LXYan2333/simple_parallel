@@ -70,10 +70,8 @@ target_link_libraries(s_p_init
     Boost::container
     Boost::mpi
     MPI::MPI_CXX
-    $<TARGET_NAME_IF_EXISTS:Boost::circular_buffer>
     
     PRIVATE
-    $<TARGET_NAME_IF_EXISTS:Boost::icl>
     Boost::thread
     s_p_options
     s_p_warings
@@ -81,6 +79,16 @@ target_link_libraries(s_p_init
     hwy
     $<$<BOOL:${SIMPLE_PARALLEL_Fortran_BINDING}>:re2::re2 PkgConfig::libelf ${CMAKE_DL_LIBS}>
 )
+
+if(NOT BOOST_IS_IMPORTED)
+    target_link_libraries(s_p_init
+        PUBLIC
+        Boost::circular_buffer
+
+        PRIVATE
+        Boost::icl
+    )
+endif()
 
 include(CheckCompilerFlag)
 check_compiler_flag(CXX -fno-stack-protector S_P_CXX_HAS_NO_STACK_PROTECTOR)

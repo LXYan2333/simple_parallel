@@ -11,6 +11,9 @@ target_link_libraries(s_p_fortran_binding
     PUBLIC
     MPI::MPI_Fortran
     s_p_init
+
+    PRIVATE
+    Microsoft.GSL::GSL
 )
 
 include(GNUInstallDirs)
@@ -33,14 +36,6 @@ target_sources(s_p_fortran_binding
     ${PROJECT_SOURCE_DIR}/include/simple_parallel/fortran/parallel_begin.h
     ${PROJECT_SOURCE_DIR}/include/simple_parallel/fortran/parallel_end.h
 )
-
-if(SIMPLE_PARALLEL_ENABLE_FLANG_ASSUMED_RANK)
-    target_compile_options(s_p_fortran_binding
-        PUBLIC
-        # https://github.com/llvm/llvm-project/issues/95990#issuecomment-2179468321
-        $<$<COMPILE_LANGUAGE:Fortran>:-mmlir -allow-assumed-rank>
-    )
-endif()
 
 set_target_properties(s_p_fortran_binding
     PROPERTIES

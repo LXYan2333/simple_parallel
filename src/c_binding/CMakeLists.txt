@@ -18,7 +18,6 @@ target_link_libraries(s_p_c_binding
     PUBLIC
     MPI::MPI_C
     Boost::headers # for boost preprocessor
-    $<TARGET_NAME_IF_EXISTS:Boost::preprocessor>
     s_p_init
     
     PRIVATE
@@ -26,6 +25,13 @@ target_link_libraries(s_p_c_binding
     s_p_options
     s_p_warings
 )
+
+if(NOT BOOST_IS_IMPORTED)
+    target_link_libraries(s_p_init
+        PUBLIC
+        Boost::preprocessor
+    )
+endif()
 
 set_target_properties(s_p_c_binding
     PROPERTIES
