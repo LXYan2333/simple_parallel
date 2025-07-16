@@ -19,6 +19,7 @@
 #include <init.h>
 #include <initializer_list>
 #include <internal_types.h>
+#include <iomanip>
 #include <map>
 #include <mimalloc.h>
 #include <mimalloc/simple_parallel.h>
@@ -26,6 +27,7 @@
 #include <mutex>
 #include <page_size.h>
 #include <pagemap.h>
+#include <ratio>
 #include <simple_parallel/cxx/simple_parallel.h>
 #include <span>
 #include <sstream>
@@ -569,6 +571,10 @@ std::atomic<bool> in_parallel = false;
 } // namespace
 
 void par_ctx_base::do_enter_parallel(bool enter_parallel) {
+
+  const auto enter_parallel_start_time = m_start_time =
+      std::chrono::steady_clock::now();
+
   if (!enter_parallel or m_comm->size() == 1) {
     m_comm = &s_p_comm_self.value();
     return;
@@ -630,12 +636,23 @@ void par_ctx_base::do_enter_parallel(bool enter_parallel) {
 #if SIMPLE_PARALLEL_Fortran_BINDING
   sync_fortran_global_variables(*m_comm, m_root_rank);
 #endif
+
+  if (m_comm->rank() == m_root_rank && print_timing()) {
+    const auto end_time = std::chrono::steady_clock::now();
+    const std::chrono::duration<double, std::milli> elapsed_ms{
+        end_time - enter_parallel_start_time};
+    std::cout << "enter parallel consumes:   " << std::setw(16)
+              << elapsed_ms.count() << " ms\n";
+  }
 }
 
 void par_ctx_base::do_exit_parallel() {
   if (!entered_parallel) {
     return;
   }
+
+  const auto exit_parallel_start_time = std::chrono::steady_clock::now();
+
   in_parallel = false;
   if (m_comm->size() > 1) {
     for (const reduce_area &reduce : m_reduces) {
@@ -646,6 +663,21 @@ void par_ctx_base::do_exit_parallel() {
   }
   if (m_comm->rank() != m_root_rank) {
     setcontext(&worker_ctx);
+  }
+
+  BOOST_ASSERT(m_comm->rank() == m_root_rank);
+
+  if (print_timing()) {
+    const auto end_time = std::chrono::steady_clock::now();
+    const std::chrono::duration<double, std::milli> exit_parallel_ms{
+        end_time - exit_parallel_start_time};
+    const std::chrono::duration<double, std::milli> parallel_elapsed_ms{
+        end_time - m_start_time};
+    // clang-format off
+    std::cout << "exit parallel consumes:    " << std::setw(16) << exit_parallel_ms.count()     << " ms\n";
+    std::cout << "overall parallel consumes: " << std::setw(16) << parallel_elapsed_ms.count()  << " ms\n";
+    std::cout << "ratio of simple_parallel:  " << std::setw(16) << (exit_parallel_ms + m_begin_parallel_consume).count() / parallel_elapsed_ms.count() << '\n';
+    // clang-format on
   }
 }
 

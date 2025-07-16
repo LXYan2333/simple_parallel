@@ -140,6 +140,12 @@ auto debug() -> bool {
   return res;
 }
 
+auto print_timing() -> bool {
+  // NOLINTNEXTLINE(concurrency-mt-unsafe)
+  static bool res = std::getenv("SIMPLE_PARALLEL_PRINT_TIMING") != nullptr;
+  return res;
+}
+
 // NOLINTBEGIN(*-global-variables)
 const mem_area fake_stack{fake_stack_buffer};
 

@@ -2,11 +2,13 @@
 
 #include <array>
 #include <boost/mpi.hpp>
+#include <chrono>
 #include <cstddef>
 #include <memory>
 #include <mpi.h>
 #include <optional>
 #include <ranges>
+#include <ratio>
 #include <simple_parallel/cxx/lib_visibility.h>
 #include <simple_parallel/cxx/types_fwd.h>
 #include <span>
@@ -85,6 +87,9 @@ private:
 
   void verify_reduces_no_overlap() const;
 
+  std::chrono::time_point<std::chrono::steady_clock> m_start_time;
+  std::chrono::duration<double, std::milli> m_begin_parallel_consume;
+
 protected:
   S_P_LIB_PUBLIC explicit par_ctx_base(
       std::span<const reduce_area> reduces = {});
@@ -135,6 +140,7 @@ explicit par_ctx(bool enter_parallel, args... reduces)
     -> par_ctx<sizeof...(args)>;
 
 S_P_LIB_PUBLIC auto debug() -> bool;
+S_P_LIB_PUBLIC auto print_timing() -> bool;
 
 S_P_LIB_PUBLIC auto symbol_name_2_addr(std::string_view name)
     -> std::optional<char *>;
