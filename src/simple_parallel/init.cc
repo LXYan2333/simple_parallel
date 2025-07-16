@@ -43,14 +43,14 @@ char fake_stack_buffer[1024 * 1024 * 16];
 struct main_wrap_params {
   const int *argc;
   char **argv;
-  char **env;
+  char **envp;
   int *ret;
+  main_fn_t real_main;
   std::exception_ptr exception;
 };
 
 void main_wrap(main_wrap_params *params) try {
-  *params->ret =
-      simple_parallel::original_main(*params->argc, params->argv, params->env);
+  *params->ret = params->real_main(*params->argc, params->argv, params->envp);
 } catch (...) {
   params->exception = std::current_exception();
   *params->ret = 1;
@@ -240,7 +240,8 @@ auto get_mpi_info_from_env() -> mpi_info {
 }
 
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
-auto fake_main(int argc, char **argv, char **env) -> int try {
+auto fake_main(int argc, char **argv, char **envp, main_fn_t real_main)
+    -> int try {
 
   // NOLINTBEGIN(concurrency-mt-unsafe)
   char *world_size_char = std::getenv("OMPI_COMM_WORLD_SIZE");
@@ -321,7 +322,7 @@ auto fake_main(int argc, char **argv, char **env) -> int try {
       std::cerr << "WARNING: This program is linked to simple_parallel library "
                    "but not start from OpenMPI, it will run without distribute "
                    "memory parallel support.\n";
-      return original_main(argc, argv, env);
+      return __real_main(argc, argv, envp);
     }
 
     BOOST_ASSERT(world.size() == world_size);
@@ -356,8 +357,9 @@ auto fake_main(int argc, char **argv, char **env) -> int try {
       int ret{};
       main_wrap_params params{.argc = &argc,
                               .argv = argv,
-                              .env = env,
+                              .envp = envp,
                               .ret = &ret,
+                              .real_main = real_main,
                               .exception = nullptr};
       // requires glibc > 2.8 to use 64bit pointers in makecontext
       // NOLINTNEXTLINE(*-vararg,*-reinterpret-cast)

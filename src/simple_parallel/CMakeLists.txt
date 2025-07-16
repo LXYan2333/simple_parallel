@@ -132,7 +132,7 @@ set_target_properties(s_p_init
 
 target_link_options(s_p_init
     PUBLIC
-    $<$<BOOL:${SIMPLE_PARALLEL_OVERRIDE_MAIN}>:LINKER:--wrap=__libc_start_main>
+    $<$<BOOL:${SIMPLE_PARALLEL_OVERRIDE_MAIN}>:LINKER:--wrap=main>
     $<$<BOOL:${SIMPLE_PARALLEL_Fortran_BINDING}>:LINKER:--export-dynamic>
 )
 

@@ -6,25 +6,13 @@ namespace simple_parallel {
 
 using main_fn_t = int (*)(int, char **, char **);
 
-using glibc_start_main_fn_t = int (*)(main_fn_t, int, char **, main_fn_t,
-                                      void (*)(), void (*)(), void *);
-
-auto fake_main(int argc, char **argv, char **env) -> int;
-
-// NOLINTNEXTLINE(*-global-variables)
-extern main_fn_t original_main;
+auto fake_main(int argc, char **argv, char **envp, main_fn_t real_main) -> int;
 
 } // namespace simple_parallel
 
 // NOLINTNEXTLINE(*-cpp,cert-dcl37-c,*reserved-identifier)
-extern "C" auto __real___libc_start_main(simple_parallel::main_fn_t main,
-                                         int argc, char **argv,
-                                         simple_parallel::main_fn_t init,
-                                         void (*fini)(), void (*rtld_fini)(),
-                                         void *stack_end) -> int;
+extern "C" auto __real_main(int argc, char **argv, char **envp) -> int;
 
 // NOLINTNEXTLINE(*-cpp,cert-dcl37-c,*reserved-identifier)
-extern "C" S_P_LIB_PUBLIC auto
-__wrap___libc_start_main(simple_parallel::main_fn_t main, int argc, char **argv,
-                         simple_parallel::main_fn_t init, void (*fini)(),
-                         void (*rtld_fini)(), void *stack_end) -> int;
+extern "C" S_P_LIB_PUBLIC auto __wrap_main(int argc, char **argv, char **envp)
+    -> int;
