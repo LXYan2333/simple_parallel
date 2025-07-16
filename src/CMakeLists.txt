@@ -6,7 +6,6 @@ set(MI_OVERRIDE ON)
 add_subdirectory(mimalloc_for_simple_parallel SYSTEM)
 add_library(simple_parallel::mimalloc-obj ALIAS mimalloc-obj)
 
-add_subdirectory(dynamic_patch_elf)
 add_subdirectory(simple_parallel)
 if(SIMPLE_PARALLEL_C_BINDING)
     message(STATUS "simple_parallel Enable C binding")
